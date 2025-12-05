@@ -41,7 +41,8 @@ namespace SMTC.GameBar
             Timber.Plant(new Utils.FileLoggingTree());
 #else
             Timber.Plant(new Utils.AppCenterLoggingTree());
-            AppCenter.Start(Keys.AppCenterKey.GetSecret(), typeof(Crashes));
+            // Removed AppCenter secret usage; do not start AppCenter without a configured key.
+            // If you want to enable AppCenter later, provide the secret here or restore `Keys\AppCenterKey.cs`.
 #endif
         }
 
