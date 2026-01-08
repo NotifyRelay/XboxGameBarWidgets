@@ -32,7 +32,7 @@ namespace NotifyRelayGamebar
             this.InitializeComponent();
 
             PlayerViewModel = new PlayerViewModel();
-            PlayerViewModel.PositionChanged += PlayerViewModel_PositionChanged;
+
 
             NotificationViewModel = new NotificationViewModel();
             NotificationService = new NotificationService(NotificationViewModel);
@@ -182,7 +182,6 @@ namespace NotifyRelayGamebar
         private async Task UpdatePlayer(MediaPlaybackDataSource source)
         {
             await UpdateMediaProperties(source);
-            await UpdateTimeline(source);
             await UpdatePlaybackInfo(source);
         }
 
@@ -206,16 +205,6 @@ namespace NotifyRelayGamebar
             });
         }
 
-        private async Task UpdateTimeline(MediaPlaybackDataSource source)
-        {
-            var timelineProperties = source.GetMediaTimelineProperties();
-
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-            {
-                PlayerViewModel.UpdateTimeline(timelineProperties);
-            });
-        }
-
         private async Task UpdatePlaybackInfo(MediaPlaybackDataSource source)
         {
             var playbackInfo = source.GetMediaPlaybackInfo();
@@ -235,7 +224,6 @@ namespace NotifyRelayGamebar
 
                 PlayerViewModel.IsShuffleEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Shuffle);
                 PlayerViewModel.IsRepeatEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Repeat);
-                PlayerViewModel.IsPlaybackPositionEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.PlaybackPosition);
                 PlayerViewModel.IsPreviousEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Previous);
                 PlayerViewModel.IsNextEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Next);
                 PlayerViewModel.IsPlayPauseEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.PlayPauseToggle);
@@ -252,9 +240,7 @@ namespace NotifyRelayGamebar
                 case MediaPlaybackDataChangedEvent.MediaInfoChanged:
                     await UpdateMediaProperties(e.MediaPlaybackDataSource);
                     break;
-                case MediaPlaybackDataChangedEvent.TimelinePropertiesChanged:
-                    await UpdateTimeline(e.MediaPlaybackDataSource);
-                    break;
+                
             }
         }
 
@@ -336,10 +322,7 @@ namespace NotifyRelayGamebar
             MediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Next);
         }
 
-        private void PlayerViewModel_PositionChanged(object sender, double e)
-        {
-            MediaPlaybackSource?.SendPlaybackPositionChangeRequest(TimeSpan.FromMilliseconds(e));
-        }
+        
 
         #region Notification Service
 

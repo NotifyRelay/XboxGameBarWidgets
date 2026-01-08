@@ -12,12 +12,11 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <local:ShuffleButtonTemplateSelector x:Key="shuffleButtonTemplateSelector" />
-        <local:RepeatButtonTemplateSelector x:Key="repeatButtonTemplateSelector" />
-        <local:SliderDurationTooltipConverter x:Key="sliderTooltipConverter" />
-        <converters:CollectionToVisibilityConverter x:Key="collectionToVisibilityConverter" />
-        <converters:BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
-    </Page.Resources>
+            <local:ShuffleButtonTemplateSelector x:Key="shuffleButtonTemplateSelector" />
+            <local:RepeatButtonTemplateSelector x:Key="repeatButtonTemplateSelector" />
+            <converters:CollectionToVisibilityConverter x:Key="collectionToVisibilityConverter" />
+            <converters:BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+        </Page.Resources>
 
     <Grid>
         <Grid x:Name="BackgroundGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" />
@@ -66,7 +65,6 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="75" />
                                 <RowDefinition Height="*" />
-                                <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid Grid.Row="0">
                                 <Grid.ColumnDefinitions>
@@ -103,31 +101,7 @@
                                         TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Grid>
-                            <StackPanel Grid.Row="1" Padding="5">
-                                <Slider
-                                    IsThumbToolTipEnabled="True"
-                                    Maximum="{x:Bind PlayerViewModel.DurationMs, Mode=OneWay}"
-                                    Minimum="0"
-                                    ThumbToolTipValueConverter="{StaticResource sliderTooltipConverter}"
-                                    Value="{x:Bind PlayerViewModel.PositionMs, Mode=TwoWay}" />
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock
-                                        Grid.Column="0"
-                                        HorizontalAlignment="Left"
-                                        d:Text="0:00"
-                                        Text="{x:Bind PlayerViewModel.PositionText, Mode=OneWay}" />
-                                    <TextBlock
-                                        Grid.Column="1"
-                                        HorizontalAlignment="Right"
-                                        d:Text="0:00"
-                                        Text="{x:Bind PlayerViewModel.DurationText, Mode=OneWay}" />
-                                </Grid>
-                            </StackPanel>
-                            <Grid Grid.Row="2" VerticalAlignment="Center">
+                            <Grid Grid.Row="1" VerticalAlignment="Center">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />

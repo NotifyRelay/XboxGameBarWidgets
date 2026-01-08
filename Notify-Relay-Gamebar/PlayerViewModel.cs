@@ -85,55 +85,6 @@ namespace NotifyRelayGamebar
         public static readonly DependencyProperty ThumbnailImageSourceProperty =
             DependencyProperty.Register("ThumbnailImageSource", typeof(ImageSource), typeof(PlayerViewModel), new PropertyMetadata(null));
 
-        public string PositionText
-        {
-            get { return (string)GetValue(PositionTextProperty); }
-            set { SetValue(PositionTextProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for PositionText.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty PositionTextProperty =
-            DependencyProperty.Register("PositionText", typeof(string), typeof(PlayerViewModel), new PropertyMetadata("0:00"));
-
-        public string DurationText
-        {
-            get { return (string)GetValue(DurationTextProperty); }
-            set { SetValue(DurationTextProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for DurationText.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty DurationTextProperty =
-            DependencyProperty.Register("DurationText", typeof(string), typeof(PlayerViewModel), new PropertyMetadata("0:00"));
-
-        public double PositionMs
-        {
-            get { return (double)GetValue(PositionMsProperty); }
-            set 
-            { 
-                if (value != PositionMs)
-                {
-                    SetValue(PositionMsProperty, value);
-                    PositionChanged?.Invoke(this, value);
-                }
-            }
-        }
-
-        // Using a DependencyProperty as the backing store for PositionMs.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty PositionMsProperty =
-            DependencyProperty.Register("PositionMs", typeof(double), typeof(PlayerViewModel), new PropertyMetadata(0d));
-
-        public event EventHandler<double> PositionChanged;
-
-        public double DurationMs
-        {
-            get { return (double)GetValue(DurationMsProperty); }
-            set { SetValue(DurationMsProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for DurationMs.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty DurationMsProperty =
-            DependencyProperty.Register("DurationMs", typeof(double), typeof(PlayerViewModel), new PropertyMetadata(0d));
-
         public bool IsShuffleActive
         {
             get { return (bool)GetValue(IsShuffleActiveProperty); }
@@ -183,16 +134,6 @@ namespace NotifyRelayGamebar
         // Using a DependencyProperty as the backing store for IsRepeatEnabled.  This enables animation, styling, binding, etc...
         public static readonly DependencyProperty IsRepeatEnabledProperty =
             DependencyProperty.Register("IsRepeatEnabled", typeof(bool), typeof(PlayerViewModel), new PropertyMetadata(false));
-
-        public bool IsPlaybackPositionEnabled
-        {
-            get { return (bool)GetValue(IsPlaybackPositionEnabledProperty); }
-            set { SetValue(IsPlaybackPositionEnabledProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for IsPlaybackPositionEnabled.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty IsPlaybackPositionEnabledProperty =
-            DependencyProperty.Register("IsPlaybackPositionEnabled", typeof(bool), typeof(PlayerViewModel), new PropertyMetadata(false));
 
         public bool IsPreviousEnabled
         {
@@ -248,34 +189,6 @@ namespace NotifyRelayGamebar
             {
                 ThumbnailImageSource = null;
             }
-        }
-
-        public void UpdateTimeline(MediaTimelineProperties timelineProperties)
-        {
-            // Set value without triggering event
-            SetValue(PositionMsProperty, timelineProperties.Position.TotalMilliseconds);
-            //PositionMs = timelineProperties.Position.TotalMilliseconds;
-            DurationMs = timelineProperties.EndTime.TotalMilliseconds;
-
-            PositionText = ConvertToTimestamp(timelineProperties.Position);
-            DurationText = ConvertToTimestamp(timelineProperties.EndTime);
-        }
-
-        private string ConvertToTimestamp(TimeSpan timeSpan)
-        {
-            var sb = new StringBuilder();
-
-            if (timeSpan.TotalHours >= 1)
-            {
-                sb.Append(timeSpan.ToString("hh"));
-            }
-            if (sb.Length > 0)
-            {
-                sb.Append(":");
-            }
-            sb.Append(timeSpan.ToString("mm':'ss"));
-
-            return sb.ToString();
         }
     }
 }
