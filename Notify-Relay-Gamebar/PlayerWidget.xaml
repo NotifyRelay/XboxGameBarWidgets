@@ -1,0 +1,198 @@
+<Page
+    x:Class="NotifyRelayGamebar.PlayerWidget"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:NotifyRelayGamebar.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:NotifyRelayGamebar"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    d:Height="200"
+    d:Width="350"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <local:ShuffleButtonTemplateSelector x:Key="shuffleButtonTemplateSelector" />
+        <local:RepeatButtonTemplateSelector x:Key="repeatButtonTemplateSelector" />
+        <local:SliderDurationTooltipConverter x:Key="sliderTooltipConverter" />
+        <converters:CollectionToVisibilityConverter x:Key="collectionToVisibilityConverter" />
+        <converters:BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+    </Page.Resources>
+
+    <Grid>
+        <Grid x:Name="BackgroundGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" />
+
+        <!-- 通知显示区域 -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Orientation="Vertical">
+                <!-- 媒体控制区域作为通知块，仅在有媒体会话时显示 -->
+                <Border
+                    x:Name="PlayerWidgetView"
+                    d:Visibility="Visible"
+                    Margin="6,4"
+                    Padding="8"
+                    CornerRadius="6,6,6,6"
+                    Background="{ThemeResource ApplicationCardBackgroundThemeBrush}"
+                    HorizontalAlignment="Stretch"
+                    Visibility="{x:Bind PlayerViewModel.SessionsAvailable, Mode=OneWay}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="24" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button
+                            Grid.Column="0"
+                            Padding="2"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="PreviousSessionButton_Click"
+                            Visibility="{x:Bind PlayerViewModel.ShowPreviousSession, Mode=OneWay}">
+                            <FontIcon Glyph="&#xE76B;" />
+                        </Button>
+
+                        <Button
+                            Grid.Column="2"
+                            Padding="2"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="NextSessionButton_Click"
+                            Visibility="{x:Bind PlayerViewModel.ShowNextSession, Mode=OneWay}">
+                            <FontIcon Glyph="&#xE76C;" />
+                        </Button>
+
+                        <Grid Grid.Column="1" Margin="5,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="75" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border CornerRadius="8">
+                                    <Image
+                                        Grid.Column="0"
+                                        Width="75"
+                                        MaxHeight="75"
+                                        VerticalAlignment="Center"
+                                        d:Source="/Assets/StoreLogo.png"
+                                        Source="{x:Bind PlayerViewModel.ThumbnailImageSource, Mode=OneWay}"
+                                        Stretch="Uniform" />
+                                </Border>
+                                <StackPanel
+                                    Grid.Column="1"
+                                    Margin="5,0"
+                                    VerticalAlignment="Center"
+                                    Orientation="Vertical">
+                                    <TextBlock
+                                        d:Text="Title"
+                                        FontWeight="Bold"
+                                        Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        d:Text="Artist"
+                                        Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        d:Text="Album"
+                                        Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Grid.Row="1" Padding="5">
+                                <Slider
+                                    IsThumbToolTipEnabled="True"
+                                    Maximum="{x:Bind PlayerViewModel.DurationMs, Mode=OneWay}"
+                                    Minimum="0"
+                                    ThumbToolTipValueConverter="{StaticResource sliderTooltipConverter}"
+                                    Value="{x:Bind PlayerViewModel.PositionMs, Mode=TwoWay}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        Grid.Column="0"
+                                        HorizontalAlignment="Left"
+                                        d:Text="0:00"
+                                        Text="{x:Bind PlayerViewModel.PositionText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        HorizontalAlignment="Right"
+                                        d:Text="0:00"
+                                        Text="{x:Bind PlayerViewModel.DurationText, Mode=OneWay}" />
+                                </Grid>
+                            </StackPanel>
+                            <Grid Grid.Row="2" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Button
+                                    Grid.Column="0"
+                                    Margin="0,0"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="ShuffleButton_Click"
+                                    Content="{x:Bind PlayerViewModel.IsShuffleActive, Mode=OneWay}"
+                                    ContentTemplateSelector="{StaticResource shuffleButtonTemplateSelector}"
+                                    Visibility="{x:Bind PlayerViewModel.IsShuffleEnabled, Mode=OneWay}" />
+                                <StackPanel
+                                    Grid.Column="1"
+                                    Padding="10,0"
+                                    HorizontalAlignment="Center"
+                                    Orientation="Horizontal">
+                                    <Button
+                                        x:Name="PreviousButton"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="PreviousButton_Click"
+                                        IsEnabled="{x:Bind PlayerViewModel.IsPreviousEnabled, Mode=OneWay}">
+                                        <FontIcon Glyph="&#xF8AC;" />
+                                    </Button>
+                                    <Button
+                                        x:Name="PlayPauseButton"
+                                        Width="50"
+                                        Height="50"
+                                        Margin="10,0"
+                                        Click="PlayPauseButton_Click"
+                                        CornerRadius="25"
+                                        IsEnabled="{x:Bind PlayerViewModel.IsPlayPauseEnabled, Mode=OneWay}"
+                                        Style="{ThemeResource AccentButtonStyle}">
+                                        <Button.Content>
+                                            <FontIcon d:Glyph="&#xF5B0;" Glyph="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(PlayerViewModel.IsPlaying), Mode=OneWay}" />
+                                        </Button.Content>
+                                    </Button>
+                                    <Button
+                                        x:Name="NextButton"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="NextButton_Click"
+                                        IsEnabled="{x:Bind PlayerViewModel.IsNextEnabled, Mode=OneWay}">
+                                        <FontIcon Glyph="&#xF8AD;" />
+                                    </Button>
+                                </StackPanel>
+                                <Button
+                                    Grid.Column="2"
+                                    Margin="0,0"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="RepeatButton_Click"
+                                    Content="{x:Bind PlayerViewModel.AutoRepeatMode, Mode=OneWay}"
+                                    ContentTemplateSelector="{StaticResource repeatButtonTemplateSelector}"
+                                    Visibility="{x:Bind PlayerViewModel.IsRepeatEnabled, Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- 其他通知将通过代码动态添加到这里 -->
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>
