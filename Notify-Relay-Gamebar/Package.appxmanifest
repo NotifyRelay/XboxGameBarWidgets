@@ -44,63 +44,63 @@
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
 		<Extensions>
-			<uap3:Extension Category="windows.appExtension">
-				<uap3:AppExtension Name="microsoft.gameBarUIExtension"
-								   Id="Widget1"
-								   DisplayName="Notify-Relay-Gamebar"
-							   Description="Notify-Relay widget"
-							   PublicFolder="GameBarAssets">
-					<uap3:Properties>
-						<GameBarWidget Type="Standard">
-							<HomeMenuVisible>true</HomeMenuVisible>
-							<PinningSupported>true</PinningSupported>
-							<SettingsSupported AppExtensionId="Widget1Settings" />
-							<ActivateAfterInstall>true</ActivateAfterInstall>
-							<FavoriteAfterInstall>true</FavoriteAfterInstall>
-							<Window>
-								<AllowForegroundTransparency>true</AllowForegroundTransparency>
-								<Size>
-									<Height>625</Height>
-									<Width>320</Width>
-									<MinHeight>500</MinHeight>
-									<MinWidth>320</MinWidth>
+				<uap3:Extension Category="windows.appExtension">
+					<uap3:AppExtension Name="microsoft.gameBarUIExtension"
+							   Id="Widget1"
+							   DisplayName="Notify-Relay-Gamebar"
+						   Description="Notify-Relay widget"
+						   PublicFolder="GameBarAssets">
+						<uap3:Properties>
+							<GameBarWidget Type="Standard">
+								<HomeMenuVisible>true</HomeMenuVisible>
+								<PinningSupported>true</PinningSupported>
+								<SettingsSupported AppExtensionId="Widget1Settings" />
+								<ActivateAfterInstall>true</ActivateAfterInstall>
+								<FavoriteAfterInstall>true</FavoriteAfterInstall>
+								<Window>
+									<AllowForegroundTransparency>true</AllowForegroundTransparency>
+									<Size>
+										<Height>625</Height>
+										<Width>320</Width>
+										<MinHeight>500</MinHeight>
+										<MinWidth>320</MinWidth>
 										<MaxHeight>1000</MaxHeight>
 										<MaxWidth>320</MaxWidth>
-								</Size>
-								<ResizeSupported>
+									</Size>
+									<ResizeSupported>
 										<Horizontal>false</Horizontal>
 										<Vertical>true</Vertical>
-								</ResizeSupported>
-							</Window>
-						</GameBarWidget>
-					</uap3:Properties>
-				</uap3:AppExtension>
+									</ResizeSupported>
+								</Window>
+							</GameBarWidget>
+						</uap3:Properties>
+					</uap3:AppExtension>
+				</uap3:Extension>
 
-        <!-- Widget Settings (Also a widget of separate type) -->
-        <uap3:Extension Category="windows.appExtension">
-          <uap3:AppExtension Name="microsoft.gameBarUIExtension"
-                   Id="Widget1Settings"
-                   DisplayName="Notify-Relay-Gamebar Settings"
-                   Description="Notify-Relay widget settings"
-                   PublicFolder="GameBarAssets">
-            <uap3:Properties>
-              <GameBarWidget Type="Settings">
-                <Window>
-                  <Size>
-                    <Height>300</Height>
-                    <Width>300</Width>
-                  </Size>
-                  <ResizeSupported>
-                    <Horizontal>false</Horizontal>
-                    <Vertical>false</Vertical>
-                  </ResizeSupported>
-                </Window>
-              </GameBarWidget>
-            </uap3:Properties>
-          </uap3:AppExtension>
-        </uap3:Extension>
-			</uap3:Extension>
-		</Extensions>
+				<!-- Widget Settings (Also a widget of separate type) -->
+				<uap3:Extension Category="windows.appExtension">
+				  <uap3:AppExtension Name="microsoft.gameBarUIExtension"
+				           Id="Widget1Settings"
+				           DisplayName="Notify-Relay-Gamebar Settings"
+				           Description="Notify-Relay widget settings"
+				           PublicFolder="GameBarAssets">
+				    <uap3:Properties>
+				      <GameBarWidget Type="Settings">
+				        <Window>
+				          <Size>
+				            <Height>300</Height>
+				            <Width>300</Width>
+				          </Size>
+				          <ResizeSupported>
+				            <Horizontal>false</Horizontal>
+				            <Vertical>false</Vertical>
+				          </ResizeSupported>
+				        </Window>
+				      </GameBarWidget>
+				    </uap3:Properties>
+				  </uap3:AppExtension>
+				</uap3:Extension>
+			</Extensions>
     </Application>
   </Applications>
 

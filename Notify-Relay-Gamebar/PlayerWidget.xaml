@@ -32,7 +32,7 @@
                     Margin="6,4"
                     Padding="8"
                     CornerRadius="6,6,6,6"
-                    Background="{ThemeResource ApplicationCardBackgroundThemeBrush}"
+                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
                     HorizontalAlignment="Stretch"
                     Visibility="{x:Bind PlayerViewModel.SessionsAvailable, Mode=OneWay}">
                     <Grid>
