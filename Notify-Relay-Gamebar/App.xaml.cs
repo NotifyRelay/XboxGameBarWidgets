@@ -1,4 +1,4 @@
-﻿#if !DEBUG
+#if !DEBUG
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Crashes;
 #endif
@@ -96,7 +96,8 @@ namespace NotifyRelayGamebar
                         widgetArgs,
                         Window.Current.CoreWindow,
                         rootFrame);
-                    rootFrame.Navigate(typeof(PlayerWidget));
+                    // 将playerWidget对象作为参数传递给PlayerWidget页面
+                    rootFrame.Navigate(typeof(PlayerWidget), playerWidget);
 
                     Window.Current.Closed += PlayerWidgetWindow_Closed;
 

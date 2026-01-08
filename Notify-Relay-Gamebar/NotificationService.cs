@@ -84,7 +84,9 @@ namespace NotifyRelayGamebar
                 {
                     Timber.Log(LoggerLevel.Info, "Parsed notification: AppName={0}, Title={1}, IconImage={2}", 
                         notification.AppName, notification.Title, notification.IconImage != null ? "Loaded" : "Null");
+                    Timber.Log(LoggerLevel.Info, "Calling AddNotification");
                     await _viewModel.AddNotification(notification);
+                    Timber.Log(LoggerLevel.Info, "AddNotification completed");
                 }
             }
             catch (Exception ex)
@@ -106,6 +108,7 @@ namespace NotifyRelayGamebar
                 string body = json.TryGetValue("body", out var bodyValue) ? bodyValue.GetString() : string.Empty;
                 string iconUrl = json.TryGetValue("iconUrl", out var iconUrlValue) && iconUrlValue.ValueType != JsonValueType.Null ? iconUrlValue.GetString() : string.Empty;
 
+                // 创建NotificationModel对象
                 var notification = new NotificationModel
                 {
                     AppName = appName,
@@ -115,29 +118,8 @@ namespace NotifyRelayGamebar
                     IsMediaNotification = false
                 };
 
-                if (!string.IsNullOrEmpty(iconUrl))
-                {
-                    try
-                    {
-                        // 检查是否为Base64编码的data: URL
-                        if (iconUrl.StartsWith("data:"))
-                        {
-                            // 处理Base64编码的图标
-                            notification.IconImage = await LoadImageFromBase64(iconUrl);
-                        }
-                        else
-                        {
-                            // 处理普通URI
-                            var uri = new Uri(iconUrl);
-                            notification.IconUri = uri;
-                            notification.IconImage = await LoadImageFromUri(uri);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Timber.Log(LoggerLevel.Warn, ex, "Error loading icon from URL: {0}", iconUrl);
-                    }
-                }
+                // 不在这里加载图标，而是将图标URL传递给ViewModel，让它在UI线程上加载
+                notification.IconUrl = iconUrl;
 
                 return notification;
             }
@@ -202,40 +184,40 @@ namespace NotifyRelayGamebar
                 var bytes = Convert.FromBase64String(base64Data);
                 Timber.Log(LoggerLevel.Info, "Decoded bytes length: {0}", bytes.Length);
                 
-                // 创建IBuffer
-                var buffer = Windows.Security.Cryptography.CryptographicBuffer.CreateFromByteArray(bytes);
-                Timber.Log(LoggerLevel.Info, "Created IBuffer with length: {0}", buffer.Length);
+                // 使用TaskCompletionSource来处理异步操作的结果
+                var tcs = new TaskCompletionSource<BitmapImage>();
                 
-                // 将字节数组转换为InMemoryRandomAccessStream
-                using (var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
+                await Windows.ApplicationModel.Core.CoreApplication.MainView.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
                 {
-                    // 将IBuffer写入内存流
-                    await stream.WriteAsync(buffer);
-                    await stream.FlushAsync();
-                    stream.Seek(0);
-                    Timber.Log(LoggerLevel.Info, "Wrote buffer to stream, position: {0}", stream.Position);
-                    
-                    // 使用TaskCompletionSource来处理异步操作的结果
-                    var tcs = new TaskCompletionSource<BitmapImage>();
-                    
-                    await Windows.ApplicationModel.Core.CoreApplication.MainView.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
+                    try
                     {
-                        try
+                        // 创建IBuffer
+                        var buffer = Windows.Security.Cryptography.CryptographicBuffer.CreateFromByteArray(bytes);
+                        Timber.Log(LoggerLevel.Info, "Created IBuffer with length: {0}", buffer.Length);
+                        
+                        // 将字节数组转换为InMemoryRandomAccessStream - 所有流操作都在UI线程上执行
+                        using (var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
                         {
+                            // 将IBuffer写入内存流
+                            await stream.WriteAsync(buffer);
+                            await stream.FlushAsync();
+                            stream.Seek(0);
+                            Timber.Log(LoggerLevel.Info, "Wrote buffer to stream, position: {0}", stream.Position);
+                            
                             // 在UI线程上创建BitmapImage并设置源
                             var bitmap = new BitmapImage();
                             await bitmap.SetSourceAsync(stream);
                             Timber.Log(LoggerLevel.Info, "Successfully loaded BitmapImage on UI thread");
                             tcs.SetResult(bitmap);
                         }
-                        catch (Exception ex)
-                        {
-                            tcs.SetException(ex);
-                        }
-                    });
-                    
-                    return await tcs.Task;
-                }
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
+                });
+                
+                return await tcs.Task;
             }
             catch (Exception ex)
             {

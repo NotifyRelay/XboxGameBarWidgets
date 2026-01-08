@@ -12,58 +12,43 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-            <local:ShuffleButtonTemplateSelector x:Key="shuffleButtonTemplateSelector" />
-            <local:RepeatButtonTemplateSelector x:Key="repeatButtonTemplateSelector" />
+            <!-- Shuffle/Repeat templates removed because buttons were removed -->
             <converters:CollectionToVisibilityConverter x:Key="collectionToVisibilityConverter" />
             <converters:BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
         </Page.Resources>
 
     <Grid>
-        <Grid x:Name="BackgroundGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}" />
+        <Grid x:Name="BackgroundGrid" />
 
         <!-- 通知显示区域 -->
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Orientation="Vertical">
-                <!-- 媒体控制区域作为通知块，仅在有媒体会话时显示 -->
-                <Border
-                    x:Name="PlayerWidgetView"
-                    d:Visibility="Visible"
-                    Margin="6,4"
-                    Padding="8"
-                    CornerRadius="6,6,6,6"
-                    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-                    HorizontalAlignment="Stretch"
-                    Visibility="{x:Bind PlayerViewModel.SessionsAvailable, Mode=OneWay}">
-                    <Grid>
+        <ScrollViewer x:Name="RootScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible">
+            <ContentControl x:Name="RootContentControl" HorizontalContentAlignment="Stretch">
+                <StackPanel x:Name="RootStackPanel" Orientation="Vertical">
+                    <!-- 改为 Stretch，使子通知可以横向填满小部件限制宽度 -->
+                    <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Orientation="Vertical">
+                        <!-- 媒体控制区域作为通知块，仅在有媒体会话时显示 -->
+                        <Border
+                            x:Name="PlayerWidgetView"
+                            d:Visibility="Visible"
+                            Margin="6,4"
+                            Padding="8"
+                            CornerRadius="6,6,6,6"
+                            Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                            HorizontalAlignment="Stretch"
+                            BorderThickness="2"
+                            BorderBrush="White">
+                    <Grid HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <Button
-                            Grid.Column="0"
-                            Padding="2"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="PreviousSessionButton_Click"
-                            Visibility="{x:Bind PlayerViewModel.ShowPreviousSession, Mode=OneWay}">
-                            <FontIcon Glyph="&#xE76B;" />
-                        </Button>
+                        <!-- 会话切换按钮已移除，保留中间播放控件 -->
 
-                        <Button
-                            Grid.Column="2"
-                            Padding="2"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Click="NextSessionButton_Click"
-                            Visibility="{x:Bind PlayerViewModel.ShowNextSession, Mode=OneWay}">
-                            <FontIcon Glyph="&#xE76C;" />
-                        </Button>
-
-                        <Grid Grid.Column="1" Margin="5,0">
+                        <Grid Grid.Column="1" Margin="5,0" HorizontalAlignment="Stretch">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="75" />
+                                <RowDefinition Height="50" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid Grid.Row="0">
@@ -71,11 +56,11 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <Border CornerRadius="8">
+                                <Border CornerRadius="6">
                                     <Image
                                         Grid.Column="0"
-                                        Width="75"
-                                        MaxHeight="75"
+                                        Width="50"
+                                        MaxHeight="50"
                                         VerticalAlignment="Center"
                                         d:Source="/Assets/StoreLogo.png"
                                         Source="{x:Bind PlayerViewModel.ThumbnailImageSource, Mode=OneWay}"
@@ -89,14 +74,17 @@
                                     <TextBlock
                                         d:Text="Title"
                                         FontWeight="Bold"
+                                        FontSize="14"
                                         Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
                                         TextTrimming="CharacterEllipsis" />
                                     <TextBlock
                                         d:Text="Artist"
+                                        FontSize="12"
                                         Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
                                         TextTrimming="CharacterEllipsis" />
                                     <TextBlock
                                         d:Text="Album"
+                                        FontSize="12"
                                         Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
                                         TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
@@ -107,18 +95,11 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Button
-                                    Grid.Column="0"
-                                    Margin="0,0"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Click="ShuffleButton_Click"
-                                    Content="{x:Bind PlayerViewModel.IsShuffleActive, Mode=OneWay}"
-                                    ContentTemplateSelector="{StaticResource shuffleButtonTemplateSelector}"
-                                    Visibility="{x:Bind PlayerViewModel.IsShuffleEnabled, Mode=OneWay}" />
+                                <!-- Shuffle 按钮已移除 -->
                                 <StackPanel
+                                    x:Name="PlaybackControlsPanel"
                                     Grid.Column="1"
-                                    Padding="10,0"
+                                    Padding="5,0"
                                     HorizontalAlignment="Center"
                                     Orientation="Horizontal">
                                     <Button
@@ -131,15 +112,21 @@
                                     </Button>
                                     <Button
                                         x:Name="PlayPauseButton"
-                                        Width="50"
-                                        Height="50"
-                                        Margin="10,0"
+                                        Width="40"
+                                        Height="40"
+                                        Margin="8,0"
+                                        Padding="5"
                                         Click="PlayPauseButton_Click"
-                                        CornerRadius="25"
+                                        CornerRadius="20"
                                         IsEnabled="{x:Bind PlayerViewModel.IsPlayPauseEnabled, Mode=OneWay}"
                                         Style="{ThemeResource AccentButtonStyle}">
                                         <Button.Content>
-                                            <FontIcon d:Glyph="&#xF5B0;" Glyph="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(PlayerViewModel.IsPlaying), Mode=OneWay}" />
+                                            <FontIcon 
+                                                d:Glyph="&#xF5B0;" 
+                                                Glyph="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(PlayerViewModel.IsPlaying), Mode=OneWay}"
+                                                FontSize="20" 
+                                                VerticalAlignment="Center" 
+                                                HorizontalAlignment="Center" />
                                         </Button.Content>
                                     </Button>
                                     <Button
@@ -151,22 +138,16 @@
                                         <FontIcon Glyph="&#xF8AD;" />
                                     </Button>
                                 </StackPanel>
-                                <Button
-                                    Grid.Column="2"
-                                    Margin="0,0"
-                                    Background="Transparent"
-                                    BorderThickness="0"
-                                    Click="RepeatButton_Click"
-                                    Content="{x:Bind PlayerViewModel.AutoRepeatMode, Mode=OneWay}"
-                                    ContentTemplateSelector="{StaticResource repeatButtonTemplateSelector}"
-                                    Visibility="{x:Bind PlayerViewModel.IsRepeatEnabled, Mode=OneWay}" />
+                                <!-- Repeat 按钮已移除 -->
                             </Grid>
                         </Grid>
                     </Grid>
                 </Border>
 
                 <!-- 其他通知将通过代码动态添加到这里 -->
-            </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </ContentControl>
         </ScrollViewer>
     </Grid>
 </Page>

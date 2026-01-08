@@ -9,6 +9,7 @@ namespace NotifyRelayGamebar.Models
         public string Title { get; set; }
         public string Body { get; set; }
         public Uri IconUri { get; set; }
+        public string IconUrl { get; set; }
         public BitmapImage IconImage { get; set; }
         public DateTime ReceivedTime { get; set; }
         public bool IsMediaNotification { get; set; }
