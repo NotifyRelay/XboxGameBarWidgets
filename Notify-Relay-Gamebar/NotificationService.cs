@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Windows.Data.Json;
+using Windows.Security.Cryptography;
 using Windows.Storage.Streams;
 using Windows.UI.Xaml.Media.Imaging;
 using TimberLog;
@@ -75,15 +76,22 @@ namespace NotifyRelayGamebar
         {
             try
             {
+                // 只打印消息的前100个字符，避免打印太长的data URL
+                string truncatedMessage = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
+                Timber.Log(LoggerLevel.Info, "Received message: {0}", truncatedMessage);
                 var notification = await ParseJsonMessage(message);
                 if (notification != null)
                 {
+                    Timber.Log(LoggerLevel.Info, "Parsed notification: AppName={0}, Title={1}, IconImage={2}", 
+                        notification.AppName, notification.Title, notification.IconImage != null ? "Loaded" : "Null");
                     await _viewModel.AddNotification(notification);
                 }
             }
             catch (Exception ex)
             {
-                Timber.Log(LoggerLevel.Error, ex, "Error processing notification message: {0}", message);
+                // 异常时也只打印消息的前100个字符
+                string truncatedMessage = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
+                Timber.Log(LoggerLevel.Error, ex, "Error processing notification message: {0}", truncatedMessage);
             }
         }
 
@@ -111,9 +119,19 @@ namespace NotifyRelayGamebar
                 {
                     try
                     {
-                        var uri = new Uri(iconUrl);
-                        notification.IconUri = uri;
-                        notification.IconImage = await LoadImageFromUri(uri);
+                        // 检查是否为Base64编码的data: URL
+                        if (iconUrl.StartsWith("data:"))
+                        {
+                            // 处理Base64编码的图标
+                            notification.IconImage = await LoadImageFromBase64(iconUrl);
+                        }
+                        else
+                        {
+                            // 处理普通URI
+                            var uri = new Uri(iconUrl);
+                            notification.IconUri = uri;
+                            notification.IconImage = await LoadImageFromUri(uri);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -134,13 +152,94 @@ namespace NotifyRelayGamebar
         {
             try
             {
-                var bitmap = new BitmapImage();
-                await bitmap.SetSourceAsync(await RandomAccessStreamReference.CreateFromUri(uri).OpenReadAsync());
-                return bitmap;
+                Timber.Log(LoggerLevel.Info, "Loading image from URI: {0}", uri.AbsoluteUri);
+                
+                // 使用TaskCompletionSource来处理异步操作的结果
+                var tcs = new TaskCompletionSource<BitmapImage>();
+                
+                await Windows.ApplicationModel.Core.CoreApplication.MainView.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
+                {
+                    try
+                    {
+                        var bitmap = new BitmapImage();
+                        await bitmap.SetSourceAsync(await RandomAccessStreamReference.CreateFromUri(uri).OpenReadAsync());
+                        Timber.Log(LoggerLevel.Info, "Successfully loaded BitmapImage from URI on UI thread");
+                        tcs.SetResult(bitmap);
+                    }
+                    catch (Exception ex)
+                    {
+                        tcs.SetException(ex);
+                    }
+                });
+                
+                return await tcs.Task;
             }
             catch (Exception ex)
             {
                 Timber.Log(LoggerLevel.Error, ex, "Error loading image from URI: {0}", uri.AbsoluteUri);
+                return null;
+            }
+        }
+
+        private async Task<BitmapImage> LoadImageFromBase64(string base64Url)
+        {
+            try
+            {
+                Timber.Log(LoggerLevel.Info, "Processing Base64 URL: {0}", base64Url.Substring(0, Math.Min(base64Url.Length, 50)) + "...");
+                
+                // 从data: URL中提取Base64数据
+                var commaIndex = base64Url.IndexOf(',');
+                if (commaIndex == -1)
+                {
+                    Timber.Log(LoggerLevel.Warn, "Base64 URL does not contain comma separator");
+                    return null;
+                }
+
+                var base64Data = base64Url.Substring(commaIndex + 1);
+                Timber.Log(LoggerLevel.Info, "Extracted Base64 data length: {0}", base64Data.Length);
+                
+                // 将Base64字符串转换为字节数组
+                var bytes = Convert.FromBase64String(base64Data);
+                Timber.Log(LoggerLevel.Info, "Decoded bytes length: {0}", bytes.Length);
+                
+                // 创建IBuffer
+                var buffer = Windows.Security.Cryptography.CryptographicBuffer.CreateFromByteArray(bytes);
+                Timber.Log(LoggerLevel.Info, "Created IBuffer with length: {0}", buffer.Length);
+                
+                // 将字节数组转换为InMemoryRandomAccessStream
+                using (var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream())
+                {
+                    // 将IBuffer写入内存流
+                    await stream.WriteAsync(buffer);
+                    await stream.FlushAsync();
+                    stream.Seek(0);
+                    Timber.Log(LoggerLevel.Info, "Wrote buffer to stream, position: {0}", stream.Position);
+                    
+                    // 使用TaskCompletionSource来处理异步操作的结果
+                    var tcs = new TaskCompletionSource<BitmapImage>();
+                    
+                    await Windows.ApplicationModel.Core.CoreApplication.MainView.Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
+                    {
+                        try
+                        {
+                            // 在UI线程上创建BitmapImage并设置源
+                            var bitmap = new BitmapImage();
+                            await bitmap.SetSourceAsync(stream);
+                            Timber.Log(LoggerLevel.Info, "Successfully loaded BitmapImage on UI thread");
+                            tcs.SetResult(bitmap);
+                        }
+                        catch (Exception ex)
+                        {
+                            tcs.SetException(ex);
+                        }
+                    });
+                    
+                    return await tcs.Task;
+                }
+            }
+            catch (Exception ex)
+            {
+                Timber.Log(LoggerLevel.Error, ex, "Error loading image from Base64: {0}", base64Url);
                 return null;
             }
         }
