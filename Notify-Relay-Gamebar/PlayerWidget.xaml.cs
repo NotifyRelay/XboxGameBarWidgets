@@ -45,6 +45,9 @@ namespace NotifyRelayGamebar
 
             widget = e.Parameter as XboxGameBarWidget;
 
+            // 将ToastStack传递给NotificationViewModel
+            NotificationViewModel.ToastStack = ToastStack;
+            
             StartService();
             StartNotificationService();
         }
