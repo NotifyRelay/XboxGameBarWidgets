@@ -71,22 +71,60 @@
                                     Margin="5,0"
                                     VerticalAlignment="Center"
                                     Orientation="Vertical">
-                                    <TextBlock
-                                        d:Text="Title"
-                                        FontWeight="Bold"
-                                        FontSize="14"
-                                        Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
-                                        TextTrimming="CharacterEllipsis" />
-                                    <TextBlock
-                                        d:Text="Artist"
-                                        FontSize="12"
-                                        Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
-                                        TextTrimming="CharacterEllipsis" />
-                                    <TextBlock
-                                        d:Text="Album"
-                                        FontSize="12"
-                                        Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
-                                        TextTrimming="CharacterEllipsis" />
+                                    <!-- 使用两个重叠的 TextBlock 实现描边效果 -->
+                                    <Grid>
+                                        <!-- 底层黑色描边文本 -->
+                                        <TextBlock
+                                            d:Text="Title"
+                                            FontWeight="Bold"
+                                            FontSize="14"
+                                            Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Foreground="Black"
+                                            Margin="1,1,0,0"/>
+                                        <!-- 上层主文本 -->
+                                        <TextBlock
+                                            d:Text="Title"
+                                            FontWeight="Bold"
+                                            FontSize="14"
+                                            Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <!-- 底层黑色描边文本 -->
+                                        <TextBlock
+                                            d:Text="Artist"
+                                            FontSize="12"
+                                            Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Foreground="Black"
+                                            Margin="1,1,0,0"/>
+                                        <!-- 上层主文本 -->
+                                        <TextBlock
+                                            d:Text="Artist"
+                                            FontSize="12"
+                                            Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <!-- 底层黑色描边文本 -->
+                                        <TextBlock
+                                            d:Text="Album"
+                                            FontSize="12"
+                                            Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Foreground="Black"
+                                            Margin="1,1,0,0"/>
+                                        <!-- 上层主文本 -->
+                                        <TextBlock
+                                            d:Text="Album"
+                                            FontSize="12"
+                                            Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis"
+                                            Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
+                                    </Grid>
                                 </StackPanel>
                             </Grid>
                             <Grid Grid.Row="1" VerticalAlignment="Center">

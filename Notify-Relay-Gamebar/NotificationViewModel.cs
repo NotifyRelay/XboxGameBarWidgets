@@ -166,28 +166,71 @@ namespace NotifyRelayGamebar
                         img.HorizontalAlignment = HorizontalAlignment.Left;
                         img.VerticalAlignment = VerticalAlignment.Top;
 
+                        // 使用Grid和两个重叠的TextBlock实现描边效果
+                        Grid titleGrid = new Grid();
+                        titleGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        
+                        // 底层描边文本
+                        TextBlock titleStroke = new TextBlock();
+                        titleStroke.Text = notification.Title;
+                        titleStroke.FontWeight = Windows.UI.Text.FontWeights.Bold;
+                        titleStroke.TextWrapping = TextWrapping.Wrap;
+                        titleStroke.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        titleStroke.Margin = new Thickness(1, 1, 0, 0);
+                        titleStroke.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ? 
+                            new SolidColorBrush(Windows.UI.Colors.Black) : 
+                            new SolidColorBrush(Windows.UI.Colors.White);
+                        
+                        // 上层主文本
                         TextBlock titleBlock = new TextBlock();
                         titleBlock.Text = notification.Title;
                         titleBlock.FontWeight = Windows.UI.Text.FontWeights.Bold;
                         titleBlock.TextWrapping = TextWrapping.Wrap;
                         titleBlock.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        titleBlock.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ? 
+                            new SolidColorBrush(Windows.UI.Colors.White) : 
+                            new SolidColorBrush(Windows.UI.Colors.Black);
+                        
+                        titleGrid.Children.Add(titleStroke);
+                        titleGrid.Children.Add(titleBlock);
 
+                        // 使用Grid和两个重叠的TextBlock实现描边效果
+                        Grid bodyGrid = new Grid();
+                        bodyGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        
+                        // 底层描边文本
+                        TextBlock bodyStroke = new TextBlock();
+                        bodyStroke.Text = notification.Body;
+                        bodyStroke.TextWrapping = TextWrapping.Wrap;
+                        bodyStroke.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        bodyStroke.Margin = new Thickness(1, 1, 0, 0);
+                        bodyStroke.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ? 
+                            new SolidColorBrush(Windows.UI.Colors.Black) : 
+                            new SolidColorBrush(Windows.UI.Colors.White);
+                        
+                        // 上层主文本
                         TextBlock bodyBlock = new TextBlock();
                         bodyBlock.Text = notification.Body;
                         bodyBlock.TextWrapping = TextWrapping.Wrap;
                         bodyBlock.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        bodyBlock.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ? 
+                            new SolidColorBrush(Windows.UI.Colors.White) : 
+                            new SolidColorBrush(Windows.UI.Colors.Black);
+                        
+                        bodyGrid.Children.Add(bodyStroke);
+                        bodyGrid.Children.Add(bodyBlock);
 
                         Grid.SetRow(img, 0);
                         Grid.SetColumn(img, 0);
                         Grid.SetRowSpan(img, 2);
-                        Grid.SetRow(titleBlock, 0);
-                        Grid.SetColumn(titleBlock, 1);
-                        Grid.SetRow(bodyBlock, 1);
-                        Grid.SetColumn(bodyBlock, 1);
+                        Grid.SetRow(titleGrid, 0);
+                        Grid.SetColumn(titleGrid, 1);
+                        Grid.SetRow(bodyGrid, 1);
+                        Grid.SetColumn(bodyGrid, 1);
 
                         grid.Children.Add(img);
-                        grid.Children.Add(titleBlock);
-                        grid.Children.Add(bodyBlock);
+                        grid.Children.Add(titleGrid);
+                        grid.Children.Add(bodyGrid);
 
                         vertical.Children.Add(sourceLine);
                         vertical.Children.Add(grid);
