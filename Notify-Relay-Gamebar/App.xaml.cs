@@ -96,10 +96,10 @@ namespace NotifyRelayGamebar
                         widgetArgs,
                         Window.Current.CoreWindow,
                         rootFrame);
-                    // 将playerWidget对象作为参数传递给PlayerWidget页面
-                    rootFrame.Navigate(typeof(PlayerWidget), playerWidget);
+                    // 将playerWidget对象作为参数传递给NotifyRelayWidget页面
+                    rootFrame.Navigate(typeof(NotifyRelayWidget), playerWidget);
 
-                    Window.Current.Closed += PlayerWidgetWindow_Closed;
+                    Window.Current.Closed += WidgetWindow_Closed;
 
                     Window.Current.Activate();
                 }
@@ -110,10 +110,10 @@ namespace NotifyRelayGamebar
             }
         }
 
-        private void PlayerWidgetWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
+        private void WidgetWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
         {
             playerWidget = null;
-            Window.Current.Closed -= PlayerWidgetWindow_Closed;
+            Window.Current.Closed -= WidgetWindow_Closed;
         }
 
         /// <summary>
@@ -154,7 +154,7 @@ namespace NotifyRelayGamebar
                     // When the navigation stack isn't restored navigate to the first page,
                     // configuring the new page by passing required information as a navigation
                     // parameter
-                    rootFrame.Navigate(typeof(PlayerWidget), e.Arguments);
+                    rootFrame.Navigate(typeof(NotifyRelayWidget), e.Arguments);
                 }
                 // Ensure the current window is active
                 Window.Current.Activate();

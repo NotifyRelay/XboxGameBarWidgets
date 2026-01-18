@@ -15,7 +15,7 @@ using Windows.UI.Xaml.Navigation;
 
 namespace NotifyRelayGamebar
 {
-    public sealed partial class PlayerWidget : Page
+    public sealed partial class NotifyRelayWidget : Page
     {
         private XboxGameBarWidget widget;
         private PlayerViewModel PlayerViewModel { get; set; }
@@ -42,7 +42,7 @@ namespace NotifyRelayGamebar
         private StackPanel _notificationExample1;
         private StackPanel _notificationExample2;
 
-        public PlayerWidget()
+        public NotifyRelayWidget()
         {
             this.InitializeComponent();
 

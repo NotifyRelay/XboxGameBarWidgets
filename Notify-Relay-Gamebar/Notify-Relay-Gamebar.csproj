@@ -138,8 +138,8 @@
     <Compile Include="NotificationViewModel.cs" />
     <Compile Include="PlayerBindingExtensions.cs" />
     <Compile Include="PlayerViewModel.cs" />
-    <Compile Include="PlayerWidget.xaml.cs">
-      <DependentUpon>PlayerWidget.xaml</DependentUpon>
+    <Compile Include="NotifyRelayWidget.xaml.cs">
+      <DependentUpon>NotifyRelayWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RepeatButtomTemplateSelector.cs" />
@@ -280,7 +280,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <Page Include="PlayerWidget.xaml">
+    <Page Include="NotifyRelayWidget.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
