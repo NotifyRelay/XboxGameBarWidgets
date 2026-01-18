@@ -112,22 +112,45 @@ namespace NotifyRelayGamebar
                     try
                     {
                         // 创建通知UI元素
+                        // 创建带阴影的容器，使用Grid和多层边框实现
+                        Grid shadowGrid = new Grid();
+                        shadowGrid.Margin = new Thickness(6, 4, 6, 4);
+                        shadowGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+                        
+                        // 阴影层
+                        Border shadowBorder = new Border();
+                        shadowBorder.CornerRadius = new CornerRadius(8, 8, 8, 8);
+                        shadowBorder.Margin = new Thickness(2, 2, 0, 0);
+                        shadowBorder.Background = new SolidColorBrush(Windows.UI.Colors.Black);
+                        shadowBorder.Opacity = 0.5;
+                        
+                        // 主边框
                         Border container = new Border();
-                        container.CornerRadius = new CornerRadius(6, 6, 6, 6);
-                        container.Margin = new Thickness(6, 4, 6, 4);
-                        container.Padding = new Thickness(8);
+                        container.CornerRadius = new CornerRadius(8, 8, 8, 8);
+                        container.Padding = new Thickness(0);
                         container.HorizontalAlignment = HorizontalAlignment.Stretch;
-                        // 添加白色描边，使其与背景有明显区分
+                        // 添加白色描边
                         container.BorderThickness = new Thickness(2);
                         container.BorderBrush = new SolidColorBrush(Windows.UI.Colors.White);
+                        container.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                        
+                        // 内层容器，设置背景色和圆角，Border会自动按圆角裁剪背景
+                        Border innerBorder = new Border();
+                        innerBorder.CornerRadius = new CornerRadius(6, 6, 6, 6);
+                        innerBorder.Padding = new Thickness(8);
                         if (Application.Current.RequestedTheme == ApplicationTheme.Dark)
                         {
-                            container.Background = new SolidColorBrush(Color.FromArgb(255, 38, 38, 38));
+                            innerBorder.Background = new SolidColorBrush(Color.FromArgb(200, 38, 38, 38));
                         }
                         else
                         {
-                            container.Background = new SolidColorBrush(Color.FromArgb(255, 219, 219, 219));
+                            innerBorder.Background = new SolidColorBrush(Color.FromArgb(200, 219, 219, 219));
                         }
+                        
+                        // 构建层次结构
+                        container.Child = innerBorder;
+                        shadowGrid.Children.Add(shadowBorder);
+                        shadowGrid.Children.Add(container);
 
                         StackPanel vertical = new StackPanel();
                         vertical.Orientation = Orientation.Vertical;
@@ -235,10 +258,12 @@ namespace NotifyRelayGamebar
                         vertical.Children.Add(sourceLine);
                         vertical.Children.Add(grid);
 
-                        container.Child = vertical;
+                        // 将内容添加到内层边框，再将内层边框添加到外层边框
+                        innerBorder.Child = vertical;
+                        container.Child = innerBorder;
 
                         // append to ToastStack (later notifications appear below)
-                        _toastStack.Children.Add(container);
+                        _toastStack.Children.Add(shadowGrid);
 
                         // 在UI线程上触发图标加载（LoadIconImageAsync 内部会再次使用 _uiDispatcher）
                         if (!string.IsNullOrEmpty(notification.IconUrl))
@@ -259,7 +284,7 @@ namespace NotifyRelayGamebar
                         // 启动自动隐藏计时（计时后通过 dispatcher 移除）
                         var currentDispatcher = _uiDispatcher;
                         var currentToastStack = _toastStack;
-                        var currentContainer = container;
+                        var currentShadowGrid = shadowGrid;
 
                         Task.Run(async () =>
                         {
@@ -268,7 +293,7 @@ namespace NotifyRelayGamebar
                             {
                                 try
                                 {
-                                    currentToastStack.Children.Remove(currentContainer);
+                                    currentToastStack.Children.Remove(currentShadowGrid);
                                 }
                                 catch (Exception ex)
                                 {

@@ -9,6 +9,7 @@ using Windows.ApplicationModel.Core;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
+using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 
 namespace NotifyRelayGamebar
@@ -176,7 +177,6 @@ namespace NotifyRelayGamebar
                     if (isPinned)
                     {
                         Timber.Log(LoggerLevel.Info, "Setting fixed state: Background opacity 0.0");
-                        BackgroundGrid.Opacity = 0.0;
 
                         try
                         {
@@ -191,31 +191,16 @@ namespace NotifyRelayGamebar
                         bool hasSessionsPinned = (MediaSessions?.Count ?? 0) > 0;
                         PlayerWidgetView.Visibility = hasSessionsPinned ? Visibility.Visible : Visibility.Collapsed;
 
-                        // 在固定时，仅更改背景画笔（不影响文本和边框）
-                        try
+                        // 在固定时，保持PlayerWidgetView背景透明，不设置背景
+                        if (PlayerWidgetView != null)
                         {
-                            var semi = CreateSemiTransparentBrush(originalPlayerBackgroundBrush, 77);
-                            if (semi != null && PlayerWidgetView != null)
-                            {
-                                PlayerWidgetView.Background = semi;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Timber.Log(LoggerLevel.Error, ex, "Error setting PlayerWidgetView background when pinned");
+                            PlayerWidgetView.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
                         }
 
-                        try
+                        // ToastStack 始终保持透明，不设置背景
+                        if (ToastStack != null)
                         {
-                            var semiToast = CreateSemiTransparentBrush(originalToastBackgroundBrush, 77);
-                            if (semiToast != null && ToastStack != null)
-                            {
-                                ToastStack.Background = semiToast;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Timber.Log(LoggerLevel.Error, ex, "Error setting ToastStack background when pinned");
+                            ToastStack.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
                         }
 
                         return;
@@ -228,9 +213,8 @@ namespace NotifyRelayGamebar
                 Timber.Log(LoggerLevel.Error, ex, "Error accessing widget.Pinned property");
             }
 
-            // 未固定时，半透明显示，并根据是否有媒体会话显示媒体控件
-            Timber.Log(LoggerLevel.Info, "Setting non-fixed state: Background opacity 0.5");
-            BackgroundGrid.Opacity = 0.5;
+            // 未固定时，根据是否有媒体会话显示媒体控件
+            Timber.Log(LoggerLevel.Info, "Setting non-fixed state");
 
             try
             {
@@ -238,29 +222,16 @@ namespace NotifyRelayGamebar
                 var visibility = hasSessions ? Visibility.Visible : Visibility.Collapsed;
                 PlaybackControlsPanel.Visibility = visibility;
 
-                // 未固定时恢复原始背景画笔，保持文本与边框不受影响
-                try
+                // 未固定时，保持PlayerWidgetView背景透明，不设置背景
+                if (PlayerWidgetView != null)
                 {
-                    if (PlayerWidgetView != null && originalPlayerBackgroundBrush != null)
-                    {
-                        PlayerWidgetView.Background = originalPlayerBackgroundBrush;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Timber.Log(LoggerLevel.Error, ex, "Error restoring PlayerWidgetView background in non-fixed state");
+                    PlayerWidgetView.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
                 }
 
-                try
+                // ToastStack 始终保持透明，不恢复背景
+                if (ToastStack != null)
                 {
-                    if (ToastStack != null && originalToastBackgroundBrush != null)
-                    {
-                        ToastStack.Background = originalToastBackgroundBrush;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Timber.Log(LoggerLevel.Error, ex, "Error restoring ToastStack background in non-fixed state");
+                    ToastStack.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
                 }
             }
             catch (Exception ex)
@@ -324,15 +295,8 @@ namespace NotifyRelayGamebar
             // 设置页面主题
             RequestedTheme = requestedTheme;
             
-            // 设置背景颜色
-            if (requestedTheme == ElementTheme.Dark)
-            {
-                BackgroundGrid.Background = widgetDarkThemeBrush;
-            }
-            else
-            {
-                BackgroundGrid.Background = widgetLightThemeBrush;
-            }
+            // 保持BackgroundGrid透明，避免显示方形背景
+            BackgroundGrid.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.Transparent);
         }
 
         private void StartService()

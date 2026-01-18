@@ -18,25 +18,44 @@
         </Page.Resources>
 
     <Grid>
-        <Grid x:Name="BackgroundGrid" />
+        <!-- 背景Grid，设置透明背景避免显示方形淡色背景 -->
+        <Grid x:Name="BackgroundGrid" Background="Transparent" />
 
         <!-- 通知显示区域 -->
-        <ScrollViewer x:Name="RootScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible">
-            <ContentControl x:Name="RootContentControl" HorizontalContentAlignment="Stretch">
-                <StackPanel x:Name="RootStackPanel" Orientation="Vertical">
+        <ScrollViewer x:Name="RootScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible" Background="Transparent">
+            <ContentControl x:Name="RootContentControl" HorizontalContentAlignment="Stretch" Background="Transparent">
+                <StackPanel x:Name="RootStackPanel" Orientation="Vertical" Background="Transparent">
                     <!-- 改为 Stretch，使子通知可以横向填满小部件限制宽度 -->
-                    <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Orientation="Vertical">
+                    <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Orientation="Vertical" Background="Transparent">
                         <!-- 媒体控制区域作为通知块，仅在有媒体会话时显示 -->
-                        <Border
+                        <!-- 使用Grid和多层边框实现阴影效果 -->
+                        <Grid
                             x:Name="PlayerWidgetView"
                             d:Visibility="Visible"
-                            Margin="6,4"
-                            Padding="8"
-                            CornerRadius="6,6,6,6"
-                            Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+                            Margin="6,4,6,4"
                             HorizontalAlignment="Stretch"
-                            BorderThickness="2"
-                            BorderBrush="White">
+                            Background="Transparent">
+                            <!-- 阴影层 -->
+                            <Border
+                                Margin="2,2,0,0"
+                                CornerRadius="8,8,8,8"
+                                Background="#40000000"
+                                Opacity="0.5"/>
+                            <!-- 主边框，使用简单的Border实现，确保背景不会溢出 -->
+                            <Border
+                                Padding="8"
+                                CornerRadius="8,8,8,8"
+                                HorizontalAlignment="Stretch"
+                                BorderThickness="2"
+                                BorderBrush="White">
+                                <Border.Background>
+                                    <!-- 使用半透明背景 -->
+                                    <SolidColorBrush Opacity="0.3">
+                                        <SolidColorBrush.Color>
+                                            <ThemeResource ResourceKey="SystemColorWindowColor" />
+                                        </SolidColorBrush.Color>
+                                    </SolidColorBrush>
+                                </Border.Background>
                     <Grid HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -73,14 +92,14 @@
                                     Orientation="Vertical">
                                     <!-- 使用两个重叠的 TextBlock 实现描边效果 -->
                                     <Grid>
-                                        <!-- 底层黑色描边文本 -->
+                                        <!-- 底层描边文本，根据主题使用不同颜色 -->
                                         <TextBlock
                                             d:Text="Title"
                                             FontWeight="Bold"
                                             FontSize="14"
                                             Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis"
-                                            Foreground="Black"
+                                            Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
                                             Margin="1,1,0,0"/>
                                         <!-- 上层主文本 -->
                                         <TextBlock
@@ -92,13 +111,13 @@
                                             Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
                                     </Grid>
                                     <Grid>
-                                        <!-- 底层黑色描边文本 -->
+                                        <!-- 底层描边文本，根据主题使用不同颜色 -->
                                         <TextBlock
                                             d:Text="Artist"
                                             FontSize="12"
                                             Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis"
-                                            Foreground="Black"
+                                            Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
                                             Margin="1,1,0,0"/>
                                         <!-- 上层主文本 -->
                                         <TextBlock
@@ -109,13 +128,13 @@
                                             Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
                                     </Grid>
                                     <Grid>
-                                        <!-- 底层黑色描边文本 -->
+                                        <!-- 底层描边文本，根据主题使用不同颜色 -->
                                         <TextBlock
                                             d:Text="Album"
                                             FontSize="12"
                                             Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis"
-                                            Foreground="Black"
+                                            Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
                                             Margin="1,1,0,0"/>
                                         <!-- 上层主文本 -->
                                         <TextBlock
@@ -181,8 +200,8 @@
                         </Grid>
                     </Grid>
                 </Border>
-
-                <!-- 其他通知将通过代码动态添加到这里 -->
+                        </Grid>
+                        <!-- 其他通知将通过代码动态添加到这里 -->
                     </StackPanel>
                 </StackPanel>
             </ContentControl>
