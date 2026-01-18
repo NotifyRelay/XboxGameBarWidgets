@@ -79,7 +79,7 @@ namespace NotifyRelayGamebar
                 // 只打印消息的前100个字符，避免打印太长的data URL
                 string truncatedMessage = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
                 Timber.Log(LoggerLevel.Info, "Received message: {0}", truncatedMessage);
-                var notification = await ParseJsonMessage(message);
+                var notification = ParseJsonMessage(message);
                 if (notification != null)
                 {
                     Timber.Log(LoggerLevel.Info, "Parsed notification: AppName={0}, Title={1}, IconImage={2}", 
@@ -97,7 +97,7 @@ namespace NotifyRelayGamebar
             }
         }
 
-        private async Task<NotificationModel> ParseJsonMessage(string jsonString)
+        private NotificationModel ParseJsonMessage(string jsonString)
         {
             try
             {

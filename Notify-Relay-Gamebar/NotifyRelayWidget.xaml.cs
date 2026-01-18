@@ -168,7 +168,7 @@ namespace NotifyRelayGamebar
             Timber.Log(LoggerLevel.Info, "Widget_PinnedChanged event triggered, Pinned: {0}", widget?.Pinned.ToString());
             
             // 直接在UI线程上更新
-            Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 _themeManager.SetBackgroundOpacity();
                 _mediaPlaybackManager.UpdateMediaVisibility();

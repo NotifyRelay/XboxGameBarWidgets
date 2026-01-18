@@ -81,7 +81,7 @@ namespace NotifyRelayGamebar
             MediaSessions = sessionManager?.GetSessions();
             _sessionIndex = FindIndexOfCurrentSession(MediaSession ?? sessionManager.CurrentSession);
 
-            await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
             {
                 var mediaSessionsCount = (MediaSessions?.Count ?? 1);
 
@@ -97,7 +97,7 @@ namespace NotifyRelayGamebar
                 }
 
                 _playerViewModel.SessionsAvailable = (MediaSessions?.Count ?? 0) > 0;
-                _notificationViewModel.SetMediaSessionStatus((MediaSessions?.Count ?? 0) > 0);
+                await _notificationViewModel.SetMediaSessionStatus((MediaSessions?.Count ?? 0) > 0);
                 
                 UpdateMediaVisibility();
                 _updateExampleNotifications?.Invoke();
@@ -184,7 +184,7 @@ namespace NotifyRelayGamebar
 
             _npsManager = null;
             MediaSessions = null;
-            _notificationViewModel.SetMediaSessionStatus(false);
+            var _ = _notificationViewModel.SetMediaSessionStatus(false);
         }
 
         private void UnloadSession()
