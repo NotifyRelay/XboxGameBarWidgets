@@ -1,4 +1,5 @@
 using Microsoft.Gaming.XboxGameBar;
+using NotifyRelayGamebar.Models;
 using NPSMLib;
 using System;
 using System.Collections.Generic;
@@ -22,10 +23,19 @@ namespace NotifyRelayGamebar
         
         private PlayerViewModel _playerViewModel;
         private NotificationViewModel _notificationViewModel;
+        // Circular dependency issue? NotificationService will call MediaPlaybackManager
+        // But MediaPlaybackManager needs to call NotificationService to send commands.
+        // I will set NotificationService later via a property or method to avoid constructor loop.
+        public NotificationService NotificationService { get; set; }
 
         private NowPlayingSessionManager _npsManager;
-        public IList<NowPlayingSession> MediaSessions { get; private set; }
-        public NowPlayingSession MediaSession { get; private set; }
+        // private IList<NowPlayingSession> MediaSessions { get; private set; } // Removed in favor of _allSessions
+        // public NowPlayingSession MediaSession { get; private set; } // Changed to generic object
+        
+        private List<object> _allSessions = new List<object>();
+        private object _currentSession; // Can be NowPlayingSession or RemoteMediaSession
+        private RemoteMediaSession _remoteSession;
+        
         private MediaPlaybackDataSource _mediaPlaybackSource;
         private int _sessionIndex = 0;
 
@@ -47,6 +57,13 @@ namespace NotifyRelayGamebar
             _notificationViewModel = notificationViewModel;
             _updateExampleNotifications = updateExampleNotifications;
             _isInPinnedAndClosedState = isInPinnedAndClosedState;
+        }
+
+        public IList<NowPlayingSession> GetAllSessions()
+        {
+             // For ExampleNotificationManager compatibility, just return local sessions or null
+             // Since ExampleNotificationManager expects IList<NowPlayingSession>
+             return _npsManager?.GetSessions();
         }
 
         public void StartService()
@@ -78,12 +95,30 @@ namespace NotifyRelayGamebar
 
         private async void ReloadSessions(NowPlayingSessionManager sessionManager)
         {
-            MediaSessions = sessionManager?.GetSessions();
-            _sessionIndex = FindIndexOfCurrentSession(MediaSession ?? sessionManager.CurrentSession);
+            var localSessions = sessionManager?.GetSessions() ?? new NowPlayingSession[0];
+            
+            _allSessions.Clear();
+            
+            // Add remote session first if available
+            if (_remoteSession != null)
+            {
+                _allSessions.Add(_remoteSession);
+            }
+            
+            foreach (var s in localSessions)
+            {
+                _allSessions.Add(s);
+            }
+
+            _sessionIndex = FindIndexOfCurrentSession(_currentSession ?? sessionManager.CurrentSession);
+            
+            // Ensure index is valid
+            if (_sessionIndex >= _allSessions.Count) _sessionIndex = 0;
+            if (_allSessions.Count == 0) _sessionIndex = -1;
 
             await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
             {
-                var mediaSessionsCount = (MediaSessions?.Count ?? 1);
+                var mediaSessionsCount = _allSessions.Count;
 
                 if (mediaSessionsCount > 1)
                 {
@@ -96,8 +131,8 @@ namespace NotifyRelayGamebar
                     _playerViewModel.ShowPreviousSession = false;
                 }
 
-                _playerViewModel.SessionsAvailable = (MediaSessions?.Count ?? 0) > 0;
-                await _notificationViewModel.SetMediaSessionStatus((MediaSessions?.Count ?? 0) > 0);
+                _playerViewModel.SessionsAvailable = mediaSessionsCount > 0;
+                await _notificationViewModel.SetMediaSessionStatus(mediaSessionsCount > 0);
                 
                 UpdateMediaVisibility();
                 _updateExampleNotifications?.Invoke();
@@ -108,15 +143,14 @@ namespace NotifyRelayGamebar
 
         public void UpdateMediaVisibility()
         {
-            bool hasSessions = (MediaSessions?.Count ?? 0) > 0;
+            bool hasSessions = _allSessions.Count > 0;
             try
             {
                 if (_isInPinnedAndClosedState?.Invoke() == true)
                 {
                     // 固定且关闭状态下隐藏媒体控制按钮；如果没有会话，则隐藏整个媒体块
                     _playbackControlsPanel.Visibility = Visibility.Collapsed;
-                    bool hasSessionsPinned = (MediaSessions?.Count ?? 0) > 0;
-                    _playerWidgetView.Visibility = hasSessionsPinned ? Visibility.Visible : Visibility.Collapsed;
+                    _playerWidgetView.Visibility = hasSessions ? Visibility.Visible : Visibility.Collapsed;
                 }
                 else
                 {
@@ -135,20 +169,23 @@ namespace NotifyRelayGamebar
             }
         }
 
-        private int FindIndexOfCurrentSession(NowPlayingSession currentSession)
+        private int FindIndexOfCurrentSession(object currentSession)
         {
+            if (currentSession == null) return 0;
+            
             int i = 0;
-
-            foreach (var session in MediaSessions)
+            foreach (var session in _allSessions)
             {
-                if (Equals(currentSession.SourceAppId, session.SourceAppId))
+                if (session is NowPlayingSession nps && currentSession is NowPlayingSession currentNps)
                 {
-                    return i;
+                    if (Equals(currentNps.SourceAppId, nps.SourceAppId)) return i;
                 }
-
+                else if (session is RemoteMediaSession rms && currentSession is RemoteMediaSession currentRms)
+                {
+                    if (currentRms.DeviceId == rms.DeviceId) return i;
+                }
                 i++;
             }
-
             return 0;
         }
 
@@ -156,14 +193,27 @@ namespace NotifyRelayGamebar
         {
             UnloadSession();
 
-            MediaSession = MediaSessions.ElementAtOrDefault(_sessionIndex);
-
-            if (MediaSession != null)
+            if (_sessionIndex >= 0 && _sessionIndex < _allSessions.Count)
             {
-                _mediaPlaybackSource = MediaSession.ActivateMediaPlaybackDataSource();
-                _mediaPlaybackSource.MediaPlaybackDataChanged += MediaPlaybackSource_MediaPlaybackDataChanged;
+                _currentSession = _allSessions[_sessionIndex];
+            }
+            else
+            {
+                _currentSession = null;
+            }
 
-                await UpdatePlayer(_mediaPlaybackSource);
+            if (_currentSession != null)
+            {
+                if (_currentSession is NowPlayingSession nps)
+                {
+                    _mediaPlaybackSource = nps.ActivateMediaPlaybackDataSource();
+                    _mediaPlaybackSource.MediaPlaybackDataChanged += MediaPlaybackSource_MediaPlaybackDataChanged;
+                    await UpdatePlayer(_mediaPlaybackSource);
+                }
+                else if (_currentSession is RemoteMediaSession rms)
+                {
+                    await UpdatePlayer(rms);
+                }
             }
         }
 
@@ -183,7 +233,8 @@ namespace NotifyRelayGamebar
             }
 
             _npsManager = null;
-            MediaSessions = null;
+            _allSessions.Clear();
+            _currentSession = null;
             var _ = _notificationViewModel.SetMediaSessionStatus(false);
         }
 
@@ -201,7 +252,58 @@ namespace NotifyRelayGamebar
                 }
             }
             _mediaPlaybackSource = null;
-            MediaSession = null;
+            // _currentSession = null; // Don't null it here, wait for next assignment
+        }
+
+        private async Task UpdatePlayer(RemoteMediaSession session)
+        {
+            await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
+            {
+                _playerViewModel.Title = session.Title;
+                _playerViewModel.Artist = session.Artist;
+                _playerViewModel.Album = ""; // 远程信息可能没有专辑信息
+                
+                // 远程会话支持所有控制
+                _playerViewModel.IsPlaying = session.IsPlaying;
+                _playerViewModel.IsPlayPauseEnabled = true;
+                _playerViewModel.IsPreviousEnabled = true;
+                _playerViewModel.IsNextEnabled = true;
+                _playerViewModel.IsShuffleEnabled = false;
+                _playerViewModel.IsRepeatEnabled = false;
+                _playerViewModel.IsShuffleActive = false;
+                _playerViewModel.AutoRepeatMode = MediaPlaybackRepeatMode.None;
+
+                if (!string.IsNullOrEmpty(session.CoverUrl))
+                {
+                    await _playerViewModel.UpdateThumbnailFromUrl(session.CoverUrl);
+                }
+                else
+                {
+                    _playerViewModel.ThumbnailImageSource = null;
+                }
+            });
+        }
+
+        public void UpdateRemoteMediaSession(RemoteMediaSession session)
+        {
+            if (session == null)
+            {
+                _remoteSession = null;
+            }
+            else
+            {
+                if (_remoteSession == null)
+                {
+                    _remoteSession = session;
+                }
+                else
+                {
+                    _remoteSession.Update(session.Title, session.Artist, session.CoverUrl, session.IsPlaying);
+                }
+            }
+            
+            // 触发重新加载以更新列表
+            ReloadSessions(_npsManager);
         }
 
         private async Task UpdatePlayer(MediaPlaybackDataSource source)
@@ -271,24 +373,48 @@ namespace NotifyRelayGamebar
         // 媒体控制按钮事件处理
         public void PreviousButton_Click(object sender, RoutedEventArgs e)
         {
-            _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Previous);
+            if (_currentSession is RemoteMediaSession rms)
+            {
+                NotificationService?.SendMediaControlCommandAsync(rms.DeviceId, "previous");
+            }
+            else
+            {
+                _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Previous);
+            }
         }
 
         public void PlayPauseButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_playerViewModel.IsPlaying)
+            if (_currentSession is RemoteMediaSession rms)
             {
-                _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Pause);
+                // Game Bar 发送 "playPause" 指令，这与 Sefirah-pc 端的逻辑保持一致
+                // Sefirah-pc 会将此 action 封装进 MediaControlRequest 发送给 Android 端
+                // Android 端会将 "playPause" 识别为切换播放/暂停的指令
+                NotificationService?.SendMediaControlCommandAsync(rms.DeviceId, "playPause");
             }
             else
             {
-                _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Play);
+                if (_playerViewModel.IsPlaying)
+                {
+                    _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Pause);
+                }
+                else
+                {
+                    _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Play);
+                }
             }
         }
 
         public void NextButton_Click(object sender, RoutedEventArgs e)
         {
-            _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Next);
+            if (_currentSession is RemoteMediaSession rms)
+            {
+                NotificationService?.SendMediaControlCommandAsync(rms.DeviceId, "next");
+            }
+            else
+            {
+                _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Next);
+            }
         }
     }
 }

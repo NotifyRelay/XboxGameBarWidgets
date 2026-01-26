@@ -125,7 +125,7 @@ namespace NotifyRelayGamebar
             _exampleNotificationManager = new ExampleNotificationManager(
                 widget,
                 ToastStack,
-                () => _mediaPlaybackManager?.MediaSessions);
+                () => _mediaPlaybackManager?.GetAllSessions());
             
             // 初始化媒体播放管理器
             _mediaPlaybackManager = new MediaPlaybackManager(
@@ -137,6 +137,13 @@ namespace NotifyRelayGamebar
                 NotificationViewModel,
                 () => _exampleNotificationManager.UpdateExampleNotifications(),
                 () => _themeManager.IsInPinnedAndClosedState());
+                
+            // Link services
+            if (_notificationManager.NotificationService != null)
+            {
+                _notificationManager.NotificationService.MediaManager = _mediaPlaybackManager;
+                _mediaPlaybackManager.NotificationService = _notificationManager.NotificationService;
+            }
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)

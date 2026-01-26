@@ -165,6 +165,50 @@ namespace NotifyRelayGamebar
         public static readonly DependencyProperty IsPlayPauseEnabledProperty =
             DependencyProperty.Register("IsPlayPauseEnabled", typeof(bool), typeof(PlayerViewModel), new PropertyMetadata(false));
 
+        public async Task UpdateThumbnailFromUrl(string url)
+        {
+            if (!string.IsNullOrEmpty(url))
+            {
+                try
+                {
+                    // Check if it is a data URL
+                    if (url.StartsWith("data:image"))
+                    {
+                        // Handle data URL (base64)
+                        var commaIndex = url.IndexOf(',');
+                        if (commaIndex != -1)
+                        {
+                            var base64Data = url.Substring(commaIndex + 1);
+                            var bytes = Convert.FromBase64String(base64Data);
+                            using (var stream = new InMemoryRandomAccessStream())
+                            {
+                                using (var writer = new DataWriter(stream.GetOutputStreamAt(0)))
+                                {
+                                    writer.WriteBytes(bytes);
+                                    await writer.StoreAsync();
+                                }
+                                await UpdateThumbnail(stream.AsStream());
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Handle regular URL
+                        BitmapImage bmpImage = new BitmapImage(new Uri(url));
+                        ThumbnailImageSource = bmpImage;
+                    }
+                }
+                catch
+                {
+                    ThumbnailImageSource = null;
+                }
+            }
+            else
+            {
+                ThumbnailImageSource = null;
+            }
+        }
+
         public async Task UpdateThumbnail(Stream thumbnailStream)
         {
             if (thumbnailStream != null)

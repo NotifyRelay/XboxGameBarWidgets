@@ -24,6 +24,9 @@ namespace NotifyRelayGamebar
 
         public event EventHandler<string> ErrorOccurred;
 
+        // Add reference to MediaPlaybackManager
+        public MediaPlaybackManager MediaManager { get; set; }
+
         public NotificationService(NotificationViewModel viewModel)
         {
             _viewModel = viewModel;
@@ -79,6 +82,42 @@ namespace NotifyRelayGamebar
                 // 只打印消息的前100个字符，避免打印太长的data URL
                 string truncatedMessage = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
                 Timber.Log(LoggerLevel.Info, "Received message: {0}", truncatedMessage);
+
+                // Check for media update
+                try
+                {
+                    var jsonObject = JsonObject.Parse(message);
+                    if (jsonObject.ContainsKey("type") && jsonObject["type"].GetString() == "media_update")
+                    {
+                        if (MediaManager != null)
+                        {
+                            var session = new RemoteMediaSession
+                            {
+                                DeviceId = jsonObject.ContainsKey("deviceId") ? jsonObject["deviceId"].GetString() : "",
+                                Title = jsonObject.ContainsKey("title") ? jsonObject["title"].GetString() : "",
+                                Artist = jsonObject.ContainsKey("artist") ? jsonObject["artist"].GetString() : "",
+                                CoverUrl = jsonObject.ContainsKey("coverUrl") ? jsonObject["coverUrl"].GetString() : "",
+                                IsPlaying = jsonObject.ContainsKey("isPlaying") && jsonObject["isPlaying"].GetBoolean()
+                            };
+
+                            // Handle empty session (removal)
+                            if (string.IsNullOrEmpty(session.Title) && string.IsNullOrEmpty(session.Artist))
+                            {
+                                MediaManager.UpdateRemoteMediaSession(null);
+                            }
+                            else
+                            {
+                                MediaManager.UpdateRemoteMediaSession(session);
+                            }
+                        }
+                        return;
+                    }
+                }
+                catch 
+                {
+                    // Ignore parsing error here, continue to try parsing as notification
+                }
+
                 var notification = ParseJsonMessage(message);
                 if (notification != null)
                 {
@@ -94,6 +133,29 @@ namespace NotifyRelayGamebar
                 // 异常时也只打印消息的前100个字符
                 string truncatedMessage = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
                 Timber.Log(LoggerLevel.Error, ex, "Error processing notification message: {0}", truncatedMessage);
+            }
+        }
+
+        public async Task SendMediaControlCommandAsync(string deviceId, string command)
+        {
+            if (_tcpClient == null || !_tcpClient.Connected || _networkStream == null) return;
+            
+            try
+            {
+                var payload = new JsonObject();
+                payload.Add("action", JsonValue.CreateStringValue("media_control"));
+                payload.Add("deviceId", JsonValue.CreateStringValue(deviceId));
+                payload.Add("command", JsonValue.CreateStringValue(command));
+                
+                string json = payload.ToString() + "\n";
+                byte[] data = Encoding.UTF8.GetBytes(json);
+                
+                await _networkStream.WriteAsync(data, 0, data.Length);
+                await _networkStream.FlushAsync();
+            }
+            catch (Exception ex)
+            {
+                ErrorOccurred?.Invoke(this, $"Error sending command: {ex.Message}");
             }
         }
 

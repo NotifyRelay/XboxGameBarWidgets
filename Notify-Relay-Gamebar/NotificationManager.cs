@@ -7,6 +7,7 @@ namespace NotifyRelayGamebar
     public class NotificationManager
     {
         private NotificationService _notificationService;
+        public NotificationService NotificationService => _notificationService;
         private NotificationViewModel _notificationViewModel;
         private StackPanel _toastStack;
 
