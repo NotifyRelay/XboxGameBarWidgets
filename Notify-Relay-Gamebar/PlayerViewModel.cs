@@ -1,6 +1,7 @@
 using NPSMLib;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
+using NotifyRelayGamebar.Models;
 
 namespace NotifyRelayGamebar
 {
@@ -164,6 +166,64 @@ namespace NotifyRelayGamebar
         // Using a DependencyProperty as the backing store for IsPlayPauseEnabled.  This enables animation, styling, binding, etc...
         public static readonly DependencyProperty IsPlayPauseEnabledProperty =
             DependencyProperty.Register("IsPlayPauseEnabled", typeof(bool), typeof(PlayerViewModel), new PropertyMetadata(false));
+
+        public ObservableCollection<MediaSessionViewModel> MediaSessions
+        {
+            get { return (ObservableCollection<MediaSessionViewModel>)GetValue(MediaSessionsProperty); }
+            set { SetValue(MediaSessionsProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for MediaSessions.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty MediaSessionsProperty =
+            DependencyProperty.Register("MediaSessions", typeof(ObservableCollection<MediaSessionViewModel>), typeof(PlayerViewModel), new PropertyMetadata(new ObservableCollection<MediaSessionViewModel>()));
+
+        // 初始化媒体会话集合
+        public PlayerViewModel()
+        {
+            MediaSessions = new ObservableCollection<MediaSessionViewModel>();
+        }
+
+        // 添加或更新媒体会话
+        public void AddOrUpdateMediaSession(MediaSessionViewModel session)
+        {
+            if (session == null || string.IsNullOrEmpty(session.SessionId))
+                return;
+
+            var existingSession = MediaSessions.FirstOrDefault(s => s.SessionId == session.SessionId);
+            
+            if (existingSession == null)
+            {
+                MediaSessions.Add(session);
+            }
+            else
+            {
+                // 更新现有会话的属性
+                existingSession.Title = session.Title;
+                existingSession.Artist = session.Artist;
+                existingSession.Album = session.Album;
+                existingSession.IsPlaying = session.IsPlaying;
+                existingSession.IsPlayPauseEnabled = session.IsPlayPauseEnabled;
+                existingSession.IsPreviousEnabled = session.IsPreviousEnabled;
+                existingSession.IsNextEnabled = session.IsNextEnabled;
+                existingSession.ThumbnailImageSource = session.ThumbnailImageSource;
+            }
+        }
+
+        // 移除媒体会话
+        public void RemoveMediaSession(string sessionId)
+        {
+            var session = MediaSessions.FirstOrDefault(s => s.SessionId == sessionId);
+            if (session != null)
+            {
+                MediaSessions.Remove(session);
+            }
+        }
+
+        // 清空所有媒体会话
+        public void ClearMediaSessions()
+        {
+            MediaSessions.Clear();
+        }
 
         public async Task UpdateThumbnailFromUrl(string url)
         {

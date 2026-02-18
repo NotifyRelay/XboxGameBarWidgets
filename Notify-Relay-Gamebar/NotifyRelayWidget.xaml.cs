@@ -113,7 +113,7 @@ namespace NotifyRelayGamebar
             _themeManager = new ThemeManager(
                 widget,
                 PlayerWidgetView,
-                PlaybackControlsPanel,
+                null, // PlaybackControlsPanel 已移除，现在每个媒体块都有自己的控制按钮
                 ToastStack,
                 BackgroundGrid);
             
@@ -131,7 +131,7 @@ namespace NotifyRelayGamebar
             _mediaPlaybackManager = new MediaPlaybackManager(
                 widget,
                 PlayerWidgetView,
-                PlaybackControlsPanel,
+                null, // PlaybackControlsPanel 已移除，现在每个媒体块都有自己的控制按钮
                 Dispatcher,
                 PlayerViewModel,
                 NotificationViewModel,
@@ -211,17 +211,30 @@ namespace NotifyRelayGamebar
         // 媒体控制按钮事件处理
         private void PreviousButton_Click(object sender, RoutedEventArgs e)
         {
-            _mediaPlaybackManager.PreviousButton_Click(sender, e);
+            string deviceId = GetDeviceIdFromSender(sender);
+            _mediaPlaybackManager.PreviousButton_Click(sender, e, deviceId);
         }
 
         private void PlayPauseButton_Click(object sender, RoutedEventArgs e)
         {
-            _mediaPlaybackManager.PlayPauseButton_Click(sender, e);
+            string deviceId = GetDeviceIdFromSender(sender);
+            _mediaPlaybackManager.PlayPauseButton_Click(sender, e, deviceId);
         }
 
         private void NextButton_Click(object sender, RoutedEventArgs e)
         {
-            _mediaPlaybackManager.NextButton_Click(sender, e);
+            string deviceId = GetDeviceIdFromSender(sender);
+            _mediaPlaybackManager.NextButton_Click(sender, e, deviceId);
+        }
+
+        // 从 sender 中获取设备 ID
+        private string GetDeviceIdFromSender(object sender)
+        {
+            if (sender is Button button && button.CommandParameter != null)
+            {
+                return button.CommandParameter.ToString();
+            }
+            return string.Empty;
         }
     }
 }

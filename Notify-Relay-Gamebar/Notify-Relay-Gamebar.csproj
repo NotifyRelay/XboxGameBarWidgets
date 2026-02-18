@@ -135,6 +135,7 @@
     <Compile Include="Converters\CollectionToVisibilityConverter.cs" />
     <Compile Include="Models\NotificationModel.cs" />
     <Compile Include="Models\RemoteMediaSession.cs" />
+    <Compile Include="Models\MediaSessionViewModel.cs" />
     <Compile Include="NotificationService.cs" />
     <Compile Include="NotificationViewModel.cs" />
     <Compile Include="PlayerBindingExtensions.cs" />

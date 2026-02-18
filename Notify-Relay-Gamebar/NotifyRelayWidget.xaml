@@ -7,6 +7,7 @@
     xmlns:local="using:NotifyRelayGamebar"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:models="using:NotifyRelayGamebar.Models"
     d:Height="200"
     d:Width="350"
     mc:Ignorable="d">
@@ -28,179 +29,184 @@
                     <!-- 改为 Stretch，使子通知可以横向填满小部件限制宽度 -->
                     <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Orientation="Vertical" Background="Transparent">
                         <!-- 媒体控制区域作为通知块，仅在有媒体会话时显示 -->
-                        <!-- 使用Grid和多层边框实现阴影效果 -->
-                        <Grid
+                        <!-- 使用 ItemsControl 显示多个媒体块 -->
+                        <ItemsControl
                             x:Name="PlayerWidgetView"
                             d:Visibility="Visible"
                             Margin="6,4,6,4"
-                            HorizontalAlignment="Stretch"
+                            ItemsSource="{x:Bind PlayerViewModel.MediaSessions, Mode=OneWay}"
                             Background="Transparent">
-                            <!-- 阴影层 -->
-                            <Border
-                                Margin="2,2,0,0"
-                                CornerRadius="8,8,8,8"
-                                Background="#40000000"
-                                Opacity="0.5"/>
-                            <!-- 主边框，使用简单的Border实现，确保背景不会溢出 -->
-                            <Border
-                                Padding="8"
-                                CornerRadius="8,8,8,8"
-                                HorizontalAlignment="Stretch"
-                                BorderThickness="2"
-                                BorderBrush="White">
-                                <Border.Background>
-                                    <!-- 使用半透明背景 -->
-                                    <SolidColorBrush Opacity="0.3">
-                                        <SolidColorBrush.Color>
-                                            <ThemeResource ResourceKey="SystemColorWindowColor" />
-                                        </SolidColorBrush.Color>
-                                    </SolidColorBrush>
-                                </Border.Background>
-                    <Grid HorizontalAlignment="Stretch">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:MediaSessionViewModel">
+                                    <!-- 使用Grid和多层边框实现阴影效果 -->
+                                    <Grid
+                                        Margin="0,4,0,4"
+                                        HorizontalAlignment="Stretch"
+                                        Background="Transparent">
+                                        <!-- 阴影层 -->
+                                        <Border
+                                            Margin="2,2,0,0"
+                                            CornerRadius="8,8,8,8"
+                                            Background="#40000000"
+                                            Opacity="0.5"/>
+                                        <!-- 主边框，使用简单的Border实现，确保背景不会溢出 -->
+                                        <Border
+                                            Padding="8"
+                                            CornerRadius="8,8,8,8"
+                                            HorizontalAlignment="Stretch"
+                                            BorderThickness="2"
+                                            BorderBrush="White">
+                                            <Border.Background>
+                                                <!-- 使用半透明背景 -->
+                                                <SolidColorBrush Opacity="0.3">
+                                                    <SolidColorBrush.Color>
+                                                        <ThemeResource ResourceKey="SystemColorWindowColor" />
+                                                    </SolidColorBrush.Color>
+                                                </SolidColorBrush>
+                                            </Border.Background>
+                                            <Grid HorizontalAlignment="Stretch">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
 
-                        <!-- 会话切换按钮已移除，保留中间播放控件 -->
-
-                        <Grid Grid.Column="1" Margin="5,0" HorizontalAlignment="Stretch">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="50" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <Grid Grid.Row="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border CornerRadius="6">
-                                    <Image
-                                        Grid.Column="0"
-                                        Width="50"
-                                        MaxHeight="50"
-                                        VerticalAlignment="Center"
-                                        d:Source="/Assets/StoreLogo.png"
-                                        Source="{x:Bind PlayerViewModel.ThumbnailImageSource, Mode=OneWay}"
-                                        Stretch="Uniform" />
-                                </Border>
-                                <StackPanel
-                                    Grid.Column="1"
-                                    Margin="5,0"
-                                    VerticalAlignment="Center"
-                                    Orientation="Vertical">
-                                    <!-- 使用两个重叠的 TextBlock 实现描边效果 -->
-                                    <Grid>
-                                        <!-- 底层描边文本，根据主题使用不同颜色 -->
-                                        <TextBlock
-                                            d:Text="Title"
-                                            FontWeight="Bold"
-                                            FontSize="14"
-                                            Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
-                                            TextTrimming="CharacterEllipsis"
-                                            Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
-                                            Margin="1,1,0,0"/>
-                                        <!-- 上层主文本 -->
-                                        <TextBlock
-                                            d:Text="Title"
-                                            FontWeight="Bold"
-                                            FontSize="14"
-                                            Text="{x:Bind PlayerViewModel.Title, Mode=OneWay}"
-                                            TextTrimming="CharacterEllipsis"
-                                            Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
+                                                <Grid Grid.Column="1" Margin="5,0" HorizontalAlignment="Stretch">
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="50" />
+                                                        <RowDefinition Height="*" />
+                                                    </Grid.RowDefinitions>
+                                                    <Grid Grid.Row="0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border CornerRadius="6">
+                                                            <Image
+                                                                Grid.Column="0"
+                                                                Width="50"
+                                                                MaxHeight="50"
+                                                                VerticalAlignment="Center"
+                                                                d:Source="/Assets/StoreLogo.png"
+                                                                Source="{x:Bind ThumbnailImageSource, Mode=OneWay}"
+                                                                Stretch="Uniform" />
+                                                        </Border>
+                                                        <StackPanel
+                                                            Grid.Column="1"
+                                                            Margin="5,0"
+                                                            VerticalAlignment="Center"
+                                                            Orientation="Vertical">
+                                                            <!-- 使用两个重叠的 TextBlock 实现描边效果 -->
+                                                            <Grid>
+                                                                <!-- 底层描边文本，根据主题使用不同颜色 -->
+                                                                <TextBlock
+                                                                    d:Text="Title"
+                                                                    FontWeight="Bold"
+                                                                    FontSize="14"
+                                                                    Text="{x:Bind Title, Mode=OneWay}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
+                                                                    Margin="1,1,0,0"/>
+                                                                <!-- 上层主文本 -->
+                                                                <TextBlock
+                                                                    d:Text="Title"
+                                                                    FontWeight="Bold"
+                                                                    FontSize="14"
+                                                                    Text="{x:Bind Title, Mode=OneWay}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
+                                                            </Grid>
+                                                            <Grid>
+                                                                <!-- 底层描边文本，根据主题使用不同颜色 -->
+                                                                <TextBlock
+                                                                    d:Text="Artist"
+                                                                    FontSize="12"
+                                                                    Text="{x:Bind Artist, Mode=OneWay}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
+                                                                    Margin="1,1,0,0"/>
+                                                                <!-- 上层主文本 -->
+                                                                <TextBlock
+                                                                    d:Text="Artist"
+                                                                    FontSize="12"
+                                                                    Text="{x:Bind Artist, Mode=OneWay}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
+                                                            </Grid>
+                                                            <Grid>
+                                                                <!-- 底层描边文本，根据主题使用不同颜色 -->
+                                                                <TextBlock
+                                                                    d:Text="Device"
+                                                                    FontSize="10"
+                                                                    Text="{x:Bind DeviceId, Mode=OneWay}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
+                                                                    Margin="1,1,0,0"/>
+                                                                <!-- 上层主文本 -->
+                                                                <TextBlock
+                                                                    d:Text="Device"
+                                                                    FontSize="10"
+                                                                    Text="{x:Bind DeviceId, Mode=OneWay}"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
+                                                            </Grid>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                    <Grid Grid.Row="1" VerticalAlignment="Center">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel
+                                                            Grid.Column="1"
+                                                            Padding="5,0"
+                                                            HorizontalAlignment="Center"
+                                                            Orientation="Horizontal">
+                                                            <Button
+                                                                Background="Transparent"
+                                                                BorderThickness="0"
+                                                                Click="PreviousButton_Click"
+                                                                CommandParameter="{x:Bind DeviceId}"
+                                                                IsEnabled="{x:Bind IsPreviousEnabled, Mode=OneWay}">
+                                                                <FontIcon Glyph="&#xF8AC;" />
+                                                            </Button>
+                                                            <Button
+                                                                Width="40"
+                                                                Height="40"
+                                                                Margin="8,0"
+                                                                Padding="5"
+                                                                Click="PlayPauseButton_Click"
+                                                                CommandParameter="{x:Bind DeviceId}"
+                                                                CornerRadius="20"
+                                                                IsEnabled="{x:Bind IsPlayPauseEnabled, Mode=OneWay}"
+                                                                Style="{ThemeResource AccentButtonStyle}">
+                                                                <Button.Content>
+                                                                    <FontIcon 
+                                                                        d:Glyph="&#xF5B0;" 
+                                                                        Glyph="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(IsPlaying), Mode=OneWay}"
+                                                                        FontSize="20" 
+                                                                        VerticalAlignment="Center" 
+                                                                        HorizontalAlignment="Center" />
+                                                                </Button.Content>
+                                                            </Button>
+                                                            <Button
+                                                                Background="Transparent"
+                                                                BorderThickness="0"
+                                                                Click="NextButton_Click"
+                                                                CommandParameter="{x:Bind DeviceId}"
+                                                                IsEnabled="{x:Bind IsNextEnabled, Mode=OneWay}">
+                                                                <FontIcon Glyph="&#xF8AD;" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
                                     </Grid>
-                                    <Grid>
-                                        <!-- 底层描边文本，根据主题使用不同颜色 -->
-                                        <TextBlock
-                                            d:Text="Artist"
-                                            FontSize="12"
-                                            Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
-                                            TextTrimming="CharacterEllipsis"
-                                            Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
-                                            Margin="1,1,0,0"/>
-                                        <!-- 上层主文本 -->
-                                        <TextBlock
-                                            d:Text="Artist"
-                                            FontSize="12"
-                                            Text="{x:Bind PlayerViewModel.Artist, Mode=OneWay}"
-                                            TextTrimming="CharacterEllipsis"
-                                            Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
-                                    </Grid>
-                                    <Grid>
-                                        <!-- 底层描边文本，根据主题使用不同颜色 -->
-                                        <TextBlock
-                                            d:Text="Album"
-                                            FontSize="12"
-                                            Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
-                                            TextTrimming="CharacterEllipsis"
-                                            Foreground="{ThemeResource SystemControlBackgroundAltHighBrush}"
-                                            Margin="1,1,0,0"/>
-                                        <!-- 上层主文本 -->
-                                        <TextBlock
-                                            d:Text="Album"
-                                            FontSize="12"
-                                            Text="{x:Bind PlayerViewModel.Album, Mode=OneWay}"
-                                            TextTrimming="CharacterEllipsis"
-                                            Foreground="{ThemeResource ApplicationForegroundThemeBrush}"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Grid>
-                            <Grid Grid.Row="1" VerticalAlignment="Center">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <!-- Shuffle 按钮已移除 -->
-                                <StackPanel
-                                    x:Name="PlaybackControlsPanel"
-                                    Grid.Column="1"
-                                    Padding="5,0"
-                                    HorizontalAlignment="Center"
-                                    Orientation="Horizontal">
-                                    <Button
-                                        x:Name="PreviousButton"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Click="PreviousButton_Click"
-                                        IsEnabled="{x:Bind PlayerViewModel.IsPreviousEnabled, Mode=OneWay}">
-                                        <FontIcon Glyph="&#xF8AC;" />
-                                    </Button>
-                                    <Button
-                                        x:Name="PlayPauseButton"
-                                        Width="40"
-                                        Height="40"
-                                        Margin="8,0"
-                                        Padding="5"
-                                        Click="PlayPauseButton_Click"
-                                        CornerRadius="20"
-                                        IsEnabled="{x:Bind PlayerViewModel.IsPlayPauseEnabled, Mode=OneWay}"
-                                        Style="{ThemeResource AccentButtonStyle}">
-                                        <Button.Content>
-                                            <FontIcon 
-                                                d:Glyph="&#xF5B0;" 
-                                                Glyph="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(PlayerViewModel.IsPlaying), Mode=OneWay}"
-                                                FontSize="20" 
-                                                VerticalAlignment="Center" 
-                                                HorizontalAlignment="Center" />
-                                        </Button.Content>
-                                    </Button>
-                                    <Button
-                                        x:Name="NextButton"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Click="NextButton_Click"
-                                        IsEnabled="{x:Bind PlayerViewModel.IsNextEnabled, Mode=OneWay}">
-                                        <FontIcon Glyph="&#xF8AD;" />
-                                    </Button>
-                                </StackPanel>
-                                <!-- Repeat 按钮已移除 -->
-                            </Grid>
-                        </Grid>
-                    </Grid>
-                </Border>
-                        </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                         <!-- 其他通知将通过代码动态添加到这里 -->
                     </StackPanel>
                 </StackPanel>

@@ -10,8 +10,8 @@ namespace NotifyRelayGamebar
     public class ThemeManager
     {
         private XboxGameBarWidget _widget;
-        private Panel _playerWidgetView;
-        private Panel _playbackControlsPanel;
+        private UIElement _playerWidgetView;
+        private UIElement _playbackControlsPanel;
         private Panel _toastStack;
         private Panel _backgroundGrid;
         
@@ -25,8 +25,8 @@ namespace NotifyRelayGamebar
 
         public ThemeManager(
             XboxGameBarWidget widget,
-            Panel playerWidgetView,
-            Panel playbackControlsPanel,
+            UIElement playerWidgetView,
+            UIElement playbackControlsPanel,
             Panel toastStack,
             Panel backgroundGrid)
         {
@@ -52,7 +52,10 @@ namespace NotifyRelayGamebar
             // 保存控件的原始背景画笔
             try
             {
-                OriginalPlayerBackgroundBrush = _playerWidgetView?.Background;
+                if (_playerWidgetView is Panel savePlayerPanel)
+                {
+                    OriginalPlayerBackgroundBrush = savePlayerPanel.Background;
+                }
             }
             catch { OriginalPlayerBackgroundBrush = null; }
 
@@ -102,7 +105,10 @@ namespace NotifyRelayGamebar
 
                         try
                         {
-                            _playbackControlsPanel.Visibility = Visibility.Collapsed;
+                            if (_playbackControlsPanel is UIElement controlsElement)
+                            {
+                                controlsElement.Visibility = Visibility.Collapsed;
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -115,9 +121,9 @@ namespace NotifyRelayGamebar
                         // _playerWidgetView.Visibility = hasSessionsPinned ? Visibility.Visible : Visibility.Collapsed;
 
                         // 在固定且关闭时，保持PlayerWidgetView背景透明，不设置背景
-                        if (_playerWidgetView != null)
+                        if (_playerWidgetView != null && _playerWidgetView is Panel pinnedPlayerPanel)
                         {
-                            _playerWidgetView.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                            pinnedPlayerPanel.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
                         }
 
                         // ToastStack 始终保持透明，不设置背景
@@ -143,9 +149,9 @@ namespace NotifyRelayGamebar
             // _playbackControlsPanel.Visibility = visibility;
 
             // 未固定时，保持PlayerWidgetView背景透明，不设置背景
-            if (_playerWidgetView != null)
+            if (_playerWidgetView != null && _playerWidgetView is Panel playerPanel)
             {
-                _playerWidgetView.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                playerPanel.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
             }
 
             // ToastStack 始终保持透明，不恢复背景
