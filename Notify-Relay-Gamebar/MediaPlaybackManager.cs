@@ -150,12 +150,21 @@ namespace NotifyRelayGamebar
             // 确保在主线程上更新 UI
             await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, async () =>
             {
+                // 获取本地媒体会话
+                var localSessions = _npsManager?.GetSessions() ?? new NowPlayingSession[0];
+                
                 // 获取当前会话 ID 集合
                 var currentSessionIds = _playerViewModel.MediaSessions.Select(s => s.SessionId).ToList();
                 var remoteSessionIds = _remoteSessions.Select(s => s.DeviceId).ToList();
+                var localSessionIds = localSessions.Select(s => s.SourceAppId).ToList();
+                
+                // 合并所有会话 ID
+                var allSessionIds = new List<string>();
+                allSessionIds.AddRange(remoteSessionIds);
+                allSessionIds.AddRange(localSessionIds);
 
                 // 移除不再存在的会话
-                var sessionsToRemove = _playerViewModel.MediaSessions.Where(s => !remoteSessionIds.Contains(s.SessionId)).ToList();
+                var sessionsToRemove = _playerViewModel.MediaSessions.Where(s => !allSessionIds.Contains(s.SessionId)).ToList();
                 foreach (var sessionToRemove in sessionsToRemove)
                 {
                     _playerViewModel.MediaSessions.Remove(sessionToRemove);
@@ -202,6 +211,77 @@ namespace NotifyRelayGamebar
                         }
 
                         _playerViewModel.MediaSessions.Add(sessionViewModel);
+                    }
+                }
+
+                // 更新或添加本地会话
+                foreach (var localSession in localSessions)
+                {
+                    var existingSession = _playerViewModel.MediaSessions.FirstOrDefault(s => s.SessionId == localSession.SourceAppId);
+                    
+                    if (existingSession != null)
+                    {
+                        // 更新现有会话的属性
+                        try
+                        {
+                            var mediaSource = localSession.ActivateMediaPlaybackDataSource();
+                            var mediaInfo = mediaSource.GetMediaObjectInfo();
+                            var playbackInfo = mediaSource.GetMediaPlaybackInfo();
+                            
+                            existingSession.Title = mediaInfo.Title;
+                            existingSession.Artist = mediaInfo.Artist;
+                            existingSession.Album = mediaInfo.AlbumTitle;
+                            existingSession.IsPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State) ? playbackInfo.PlaybackState : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing;
+                            
+                            // 更新封面
+                            var thumbnailStream = mediaSource.GetThumbnailStream();
+                            if (thumbnailStream != null)
+                            {
+                                await existingSession.UpdateThumbnail(thumbnailStream);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Timber.Log(LoggerLevel.Error, ex, "Error updating local session");
+                        }
+                    }
+                    else
+                    {
+                        // 添加新会话
+                        try
+                        {
+                            var mediaSource = localSession.ActivateMediaPlaybackDataSource();
+                            var mediaInfo = mediaSource.GetMediaObjectInfo();
+                            var playbackInfo = mediaSource.GetMediaPlaybackInfo();
+                            var playerCapabilities = playbackInfo.PlaybackCaps;
+                            
+                            var sessionViewModel = new NotifyRelayGamebar.Models.MediaSessionViewModel
+                            {
+                                SessionId = localSession.SourceAppId,
+                                DeviceId = localSession.SourceAppId,
+                                Title = mediaInfo.Title,
+                                Artist = mediaInfo.Artist,
+                                Album = mediaInfo.AlbumTitle,
+                                IsPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State) ? playbackInfo.PlaybackState : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing,
+                                IsPlayPauseEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.PlayPauseToggle),
+                                IsPreviousEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Previous),
+                                IsNextEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Next),
+                                IsRemoteSession = false
+                            };
+
+                            // 更新封面
+                            var thumbnailStream = mediaSource.GetThumbnailStream();
+                            if (thumbnailStream != null)
+                            {
+                                await sessionViewModel.UpdateThumbnail(thumbnailStream);
+                            }
+
+                            _playerViewModel.MediaSessions.Add(sessionViewModel);
+                        }
+                        catch (Exception ex)
+                        {
+                            Timber.Log(LoggerLevel.Error, ex, "Error adding local session");
+                        }
                     }
                 }
             });
@@ -466,8 +546,18 @@ namespace NotifyRelayGamebar
         {
             if (!string.IsNullOrEmpty(deviceId))
             {
-                // 使用从按钮传递的设备 ID
-                NotificationService?.SendMediaControlCommandAsync(deviceId, "previous");
+                // 检查是否是远程会话
+                var remoteSession = _remoteSessions.FirstOrDefault(s => s.DeviceId == deviceId);
+                if (remoteSession != null)
+                {
+                    // 使用从按钮传递的设备 ID 控制远程会话
+                    NotificationService?.SendMediaControlCommandAsync(deviceId, "previous");
+                }
+                else
+                {
+                    // 尝试控制本地会话
+                    ControlLocalSession(deviceId, MediaPlaybackCommands.Previous);
+                }
             }
             else if (_currentSession is RemoteMediaSession rms)
             {
@@ -484,8 +574,21 @@ namespace NotifyRelayGamebar
         {
             if (!string.IsNullOrEmpty(deviceId))
             {
-                // 使用从按钮传递的设备 ID
-                NotificationService?.SendMediaControlCommandAsync(deviceId, "playPause");
+                // 检查是否是远程会话
+                var remoteSession = _remoteSessions.FirstOrDefault(s => s.DeviceId == deviceId);
+                if (remoteSession != null)
+                {
+                    // 使用从按钮传递的设备 ID 控制远程会话
+                    NotificationService?.SendMediaControlCommandAsync(deviceId, "playPause");
+                }
+                else
+                {
+                    // 尝试控制本地会话
+                    var playbackCommand = _playerViewModel.MediaSessions.FirstOrDefault(s => s.SessionId == deviceId)?.IsPlaying == true 
+                        ? MediaPlaybackCommands.Pause 
+                        : MediaPlaybackCommands.Play;
+                    ControlLocalSession(deviceId, playbackCommand);
+                }
             }
             else if (_currentSession is RemoteMediaSession rms)
             {
@@ -509,8 +612,18 @@ namespace NotifyRelayGamebar
         {
             if (!string.IsNullOrEmpty(deviceId))
             {
-                // 使用从按钮传递的设备 ID
-                NotificationService?.SendMediaControlCommandAsync(deviceId, "next");
+                // 检查是否是远程会话
+                var remoteSession = _remoteSessions.FirstOrDefault(s => s.DeviceId == deviceId);
+                if (remoteSession != null)
+                {
+                    // 使用从按钮传递的设备 ID 控制远程会话
+                    NotificationService?.SendMediaControlCommandAsync(deviceId, "next");
+                }
+                else
+                {
+                    // 尝试控制本地会话
+                    ControlLocalSession(deviceId, MediaPlaybackCommands.Next);
+                }
             }
             else if (_currentSession is RemoteMediaSession rms)
             {
@@ -520,6 +633,25 @@ namespace NotifyRelayGamebar
             else
             {
                 _mediaPlaybackSource?.SendMediaPlaybackCommand(MediaPlaybackCommands.Next);
+            }
+        }
+
+        // 控制本地会话
+        private void ControlLocalSession(string sourceAppId, MediaPlaybackCommands command)
+        {
+            try
+            {
+                var localSessions = _npsManager?.GetSessions() ?? new NowPlayingSession[0];
+                var targetSession = localSessions.FirstOrDefault(s => s.SourceAppId == sourceAppId);
+                if (targetSession != null)
+                {
+                    var mediaSource = targetSession.ActivateMediaPlaybackDataSource();
+                    mediaSource.SendMediaPlaybackCommand(command);
+                }
+            }
+            catch (Exception ex)
+            {
+                Timber.Log(LoggerLevel.Error, ex, "Error controlling local session");
             }
         }
     }
