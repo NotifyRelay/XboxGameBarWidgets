@@ -584,10 +584,20 @@ namespace NotifyRelayGamebar
                 else
                 {
                     // 尝试控制本地会话
-                    var playbackCommand = _playerViewModel.MediaSessions.FirstOrDefault(s => s.SessionId == deviceId)?.IsPlaying == true 
-                        ? MediaPlaybackCommands.Pause 
-                        : MediaPlaybackCommands.Play;
-                    ControlLocalSession(deviceId, playbackCommand);
+                    // 对于本地会话，我们需要根据实际状态发送正确的命令
+                    // 首先获取本地会话的当前状态
+                    var sessionViewModel = _playerViewModel.MediaSessions.FirstOrDefault(s => s.SessionId == deviceId);
+                    if (sessionViewModel != null)
+                    {
+                        // 根据当前播放状态发送相反的命令
+                        var playbackCommand = sessionViewModel.IsPlaying 
+                            ? MediaPlaybackCommands.Pause 
+                            : MediaPlaybackCommands.Play;
+                        ControlLocalSession(deviceId, playbackCommand);
+                        
+                        // 立即更新会话状态，以确保 UI 反映正确的状态
+                        sessionViewModel.IsPlaying = !sessionViewModel.IsPlaying;
+                    }
                 }
             }
             else if (_currentSession is RemoteMediaSession rms)

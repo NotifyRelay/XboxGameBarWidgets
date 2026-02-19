@@ -73,7 +73,7 @@
 
                                                 <Grid Grid.Column="1" Margin="5,0" HorizontalAlignment="Stretch">
                                                     <Grid.RowDefinitions>
-                                                        <RowDefinition Height="50" />
+                                                        <RowDefinition Height="Auto" />
                                                         <RowDefinition Height="*" />
                                                     </Grid.RowDefinitions>
                                                     <Grid Grid.Row="0">
@@ -85,8 +85,8 @@
                                                             <Image
                                                                 Grid.Column="0"
                                                                 Width="50"
-                                                                MaxHeight="50"
-                                                                VerticalAlignment="Center"
+                                                                Height="50"
+                                                                VerticalAlignment="Top"
                                                                 d:Source="/Assets/StoreLogo.png"
                                                                 Source="{x:Bind ThumbnailImageSource, Mode=OneWay}"
                                                                 Stretch="Uniform" />
@@ -94,7 +94,7 @@
                                                         <StackPanel
                                                             Grid.Column="1"
                                                             Margin="5,0"
-                                                            VerticalAlignment="Center"
+                                                            VerticalAlignment="Top"
                                                             Orientation="Vertical">
                                                             <!-- 使用两个重叠的 TextBlock 实现描边效果 -->
                                                             <Grid>
