@@ -195,6 +195,7 @@ namespace NotifyRelayGamebar
                         {
                             SessionId = remoteSession.DeviceId,
                             DeviceId = remoteSession.DeviceId,
+                            DeviceName = remoteSession.DeviceName,
                             Title = remoteSession.Title,
                             Artist = remoteSession.Artist,
                             IsPlaying = remoteSession.IsPlaying,

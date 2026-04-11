@@ -29,6 +29,15 @@ namespace NotifyRelayGamebar.Models
         public static readonly DependencyProperty DeviceIdProperty =
             DependencyProperty.Register("DeviceId", typeof(string), typeof(MediaSessionViewModel), new PropertyMetadata(string.Empty));
 
+        public string DeviceName
+        {
+            get { return (string)GetValue(DeviceNameProperty); }
+            set { SetValue(DeviceNameProperty, value); }
+        }
+
+        public static readonly DependencyProperty DeviceNameProperty =
+            DependencyProperty.Register("DeviceName", typeof(string), typeof(MediaSessionViewModel), new PropertyMetadata(string.Empty));
+
         public string Title
         {
             get { return (string)GetValue(TitleProperty); }

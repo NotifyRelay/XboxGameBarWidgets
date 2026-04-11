@@ -8,6 +8,7 @@ namespace NotifyRelayGamebar.Models
     public class RemoteMediaSession
     {
         public string DeviceId { get; set; }
+        public string DeviceName { get; set; }
         public string Title { get; set; }
         public string Artist { get; set; }
         public string CoverUrl { get; set; }

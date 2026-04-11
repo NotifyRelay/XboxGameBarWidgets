@@ -94,6 +94,7 @@ namespace NotifyRelayGamebar
                             var session = new RemoteMediaSession
                             {
                                 DeviceId = jsonObject.ContainsKey("deviceId") ? jsonObject["deviceId"].GetString() : "",
+                                DeviceName = jsonObject.ContainsKey("deviceName") ? jsonObject["deviceName"].GetString() : "",
                                 Title = jsonObject.ContainsKey("title") ? jsonObject["title"].GetString() : "",
                                 Artist = jsonObject.ContainsKey("artist") ? jsonObject["artist"].GetString() : "",
                                 CoverUrl = jsonObject.ContainsKey("coverUrl") ? jsonObject["coverUrl"].GetString() : "",
