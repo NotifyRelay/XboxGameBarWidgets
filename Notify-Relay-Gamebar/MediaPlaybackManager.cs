@@ -220,40 +220,41 @@ namespace NotifyRelayGamebar
                 {
                     var existingSession = _playerViewModel.MediaSessions.FirstOrDefault(s => s.SessionId == localSession.SourceAppId);
                     
-                    if (existingSession != null)
+                    try
                     {
-                        // 更新现有会话的属性
-                        try
+                        var mediaSource = localSession.ActivateMediaPlaybackDataSource();
+                        var mediaInfo = mediaSource.GetMediaObjectInfo();
+                        var playbackInfo = mediaSource.GetMediaPlaybackInfo();
+                        
+                        // 检查是否有有效信息（参考WinIsland逻辑）
+                        bool hasValidInfo = !string.IsNullOrWhiteSpace(mediaInfo.Title) || !string.IsNullOrWhiteSpace(mediaInfo.Artist);
+                        
+                        if (existingSession != null)
                         {
-                            var mediaSource = localSession.ActivateMediaPlaybackDataSource();
-                            var mediaInfo = mediaSource.GetMediaObjectInfo();
-                            var playbackInfo = mediaSource.GetMediaPlaybackInfo();
-                            
-                            existingSession.Title = mediaInfo.Title;
-                            existingSession.Artist = mediaInfo.Artist;
-                            existingSession.Album = mediaInfo.AlbumTitle;
-                            existingSession.IsPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State) ? playbackInfo.PlaybackState : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing;
-                            
-                            // 更新封面
-                            var thumbnailStream = mediaSource.GetThumbnailStream();
-                            if (thumbnailStream != null)
+                            if (hasValidInfo)
                             {
-                                await existingSession.UpdateThumbnail(thumbnailStream);
+                                // 更新现有会话的属性
+                                existingSession.Title = mediaInfo.Title;
+                                existingSession.Artist = mediaInfo.Artist;
+                                existingSession.Album = mediaInfo.AlbumTitle;
+                                existingSession.IsPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State) ? playbackInfo.PlaybackState : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing;
+                                
+                                // 更新封面
+                                var thumbnailStream = mediaSource.GetThumbnailStream();
+                                if (thumbnailStream != null)
+                                {
+                                    await existingSession.UpdateThumbnail(thumbnailStream);
+                                }
+                            }
+                            else
+                            {
+                                // 没有有效信息，移除会话
+                                _playerViewModel.MediaSessions.Remove(existingSession);
                             }
                         }
-                        catch (Exception ex)
+                        else if (hasValidInfo)
                         {
-                            Timber.Log(LoggerLevel.Error, ex, "Error updating local session");
-                        }
-                    }
-                    else
-                    {
-                        // 添加新会话
-                        try
-                        {
-                            var mediaSource = localSession.ActivateMediaPlaybackDataSource();
-                            var mediaInfo = mediaSource.GetMediaObjectInfo();
-                            var playbackInfo = mediaSource.GetMediaPlaybackInfo();
+                            // 添加新会话（只有当有有效信息时）
                             var playerCapabilities = playbackInfo.PlaybackCaps;
                             
                             var sessionViewModel = new NotifyRelayGamebar.Models.MediaSessionViewModel
@@ -279,10 +280,10 @@ namespace NotifyRelayGamebar
 
                             _playerViewModel.MediaSessions.Add(sessionViewModel);
                         }
-                        catch (Exception ex)
-                        {
-                            Timber.Log(LoggerLevel.Error, ex, "Error adding local session");
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Timber.Log(LoggerLevel.Error, ex, "Error processing local session");
                     }
                 }
             });
@@ -540,6 +541,9 @@ namespace NotifyRelayGamebar
                     await UpdateMediaProperties(e.MediaPlaybackDataSource);
                     break;
             }
+            
+            // 同时更新 MediaSessions 集合中的对应项
+            UpdateMediaSessionsViewModel();
         }
 
         // 媒体控制按钮事件处理

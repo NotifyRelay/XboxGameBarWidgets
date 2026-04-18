@@ -74,7 +74,7 @@
             <ContentControl x:Name="RootContentControl" HorizontalContentAlignment="Stretch" Background="Transparent">
                 <StackPanel x:Name="RootStackPanel" Orientation="Vertical" Background="Transparent">
                     <!-- 改为 Stretch，使子通知可以横向填满小部件限制宽度 -->
-                    <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10" Orientation="Vertical" Background="Transparent">
+                    <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10,0,10,10" Orientation="Vertical" Background="Transparent">
                         <!-- 媒体控制区域作为通知块，仅在有媒体会话时显示 -->
                         <!-- 使用 ItemsControl 显示多个媒体块 -->
                         <ItemsControl
