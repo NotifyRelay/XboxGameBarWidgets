@@ -39,6 +39,10 @@ namespace NotifyRelayGamebar
         private MediaPlaybackDataSource _mediaPlaybackSource;
         private int _sessionIndex = 0;
 
+        private DispatcherTimer _pollTimer;
+        private DateTime _lastManagerRefresh = DateTime.MinValue;
+        private DateTime _lastFullSessionRefresh = DateTime.MinValue;
+
         public MediaPlaybackManager(
             XboxGameBarWidget widget,
             UIElement playerWidgetView,
@@ -78,6 +82,13 @@ namespace NotifyRelayGamebar
                 _npsManager = new NowPlayingSessionManager();
                 _npsManager.SessionListChanged += NPSManager_SessionsChanged;
                 ReloadSessions(_npsManager);
+
+                _pollTimer = new DispatcherTimer();
+                _pollTimer.Interval = TimeSpan.FromMilliseconds(300);
+                _pollTimer.Tick += PollTimer_Tick;
+                _pollTimer.Start();
+                _lastManagerRefresh = DateTime.Now;
+                _lastFullSessionRefresh = DateTime.Now;
             }
             catch (Exception ex)
             {
@@ -175,22 +186,33 @@ namespace NotifyRelayGamebar
                 {
                     var existingSession = _playerViewModel.MediaSessions.FirstOrDefault(s => s.SessionId == remoteSession.DeviceId);
                     
+                    // 检查是否有有效信息（参考WinIsland逻辑）
+                    bool hasValidInfo = !string.IsNullOrWhiteSpace(remoteSession.Title) || !string.IsNullOrWhiteSpace(remoteSession.Artist);
+                    
                     if (existingSession != null)
                     {
-                        // 更新现有会话的属性
-                        existingSession.Title = remoteSession.Title;
-                        existingSession.Artist = remoteSession.Artist;
-                        existingSession.IsPlaying = remoteSession.IsPlaying;
-
-                        // 只有当封面 URL 发生变化时才更新封面
-                        if (!string.IsNullOrEmpty(remoteSession.CoverUrl))
+                        if (hasValidInfo)
                         {
-                            await existingSession.UpdateThumbnailFromUrl(remoteSession.CoverUrl);
+                            // 更新现有会话的属性
+                            existingSession.Title = remoteSession.Title;
+                            existingSession.Artist = remoteSession.Artist;
+                            existingSession.IsPlaying = remoteSession.IsPlaying;
+
+                            // 只有当封面 URL 发生变化时才更新封面
+                            if (!string.IsNullOrEmpty(remoteSession.CoverUrl))
+                            {
+                                await existingSession.UpdateThumbnailFromUrl(remoteSession.CoverUrl);
+                            }
+                        }
+                        else
+                        {
+                            // 没有有效信息，移除会话
+                            _playerViewModel.MediaSessions.Remove(existingSession);
                         }
                     }
-                    else
+                    else if (hasValidInfo)
                     {
-                        // 添加新会话
+                        // 添加新会话（只有当有有效信息时）
                         var sessionViewModel = new NotifyRelayGamebar.Models.MediaSessionViewModel
                         {
                             SessionId = remoteSession.DeviceId,
@@ -385,6 +407,9 @@ namespace NotifyRelayGamebar
 
         public void StopService()
         {
+            _pollTimer?.Stop();
+            _pollTimer = null;
+
             // Unregister events
             if (_npsManager != null)
             {
@@ -544,6 +569,193 @@ namespace NotifyRelayGamebar
             
             // 同时更新 MediaSessions 集合中的对应项
             UpdateMediaSessionsViewModel();
+        }
+
+        private void PollTimer_Tick(object sender, object e)
+        {
+            if (_npsManager == null) return;
+
+            try
+            {
+                if ((DateTime.Now - _lastManagerRefresh).TotalSeconds > 30)
+                {
+                    RefreshSessionManager();
+                    _lastManagerRefresh = DateTime.Now;
+                    return;
+                }
+
+                PollCurrentSessionFresh();
+
+                if ((DateTime.Now - _lastFullSessionRefresh).TotalSeconds > 3)
+                {
+                    PollAllSessionsFresh();
+                    _lastFullSessionRefresh = DateTime.Now;
+                }
+            }
+            catch (Exception ex)
+            {
+                Timber.Log(LoggerLevel.Error, ex, "Error in poll timer");
+            }
+        }
+
+        private void PollCurrentSessionFresh()
+        {
+            try
+            {
+                var managerCurrent = _npsManager?.CurrentSession;
+
+                if (managerCurrent == null)
+                {
+                    if (_currentSession != null)
+                    {
+                        ReloadSessions(_npsManager);
+                    }
+                    return;
+                }
+
+                if (_currentSession is NowPlayingSession ourSession)
+                {
+                    if (ourSession.SourceAppId != managerCurrent.SourceAppId)
+                    {
+                        ReloadSessions(_npsManager);
+                        return;
+                    }
+                }
+                else if (_currentSession == null)
+                {
+                    ReloadSessions(_npsManager);
+                    return;
+                }
+
+                var freshSource = managerCurrent.ActivateMediaPlaybackDataSource();
+                var playbackInfo = freshSource.GetMediaPlaybackInfo();
+                var mediaInfo = freshSource.GetMediaObjectInfo();
+
+                bool isPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State)
+                    ? playbackInfo.PlaybackState
+                    : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing;
+
+                if (_playerViewModel.IsPlaying != isPlaying)
+                {
+                    _playerViewModel.IsPlaying = isPlaying;
+                }
+
+                var caps = playbackInfo.PlaybackCaps;
+                var validProps = playbackInfo.PropsValid;
+
+                bool shuffleActive = validProps.HasFlag(MediaPlaybackProps.ShuffleEnabled) && playbackInfo.ShuffleEnabled;
+                var repeatMode = validProps.HasFlag(MediaPlaybackProps.AutoRepeatMode) ? playbackInfo.RepeatMode : MediaPlaybackRepeatMode.Unknown;
+
+                if (_playerViewModel.IsShuffleActive != shuffleActive)
+                    _playerViewModel.IsShuffleActive = shuffleActive;
+                if (_playerViewModel.AutoRepeatMode != repeatMode)
+                    _playerViewModel.AutoRepeatMode = repeatMode;
+
+                string title = mediaInfo.Title ?? "";
+                string artist = mediaInfo.Artist ?? "";
+                if (string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(mediaInfo.AlbumArtist))
+                    artist = mediaInfo.AlbumArtist;
+
+                if (title != _playerViewModel.Title || artist != _playerViewModel.Artist)
+                {
+                    _playerViewModel.Title = title;
+                    _playerViewModel.Artist = artist;
+                    _playerViewModel.Album = mediaInfo.AlbumTitle ?? "";
+
+                    var thumbnailStream = freshSource.GetThumbnailStream();
+                    if (thumbnailStream != null)
+                    {
+                        var _ = _playerViewModel.UpdateThumbnail(thumbnailStream);
+                    }
+                    else
+                    {
+                        _playerViewModel.ThumbnailImageSource = null;
+                    }
+
+                    UpdateMediaSessionsViewModel();
+                }
+            }
+            catch (Exception ex)
+            {
+                Timber.Log(LoggerLevel.Error, ex, "Error polling current session fresh");
+            }
+        }
+
+        private void PollAllSessionsFresh()
+        {
+            try
+            {
+                var localSessions = _npsManager?.GetSessions();
+                if (localSessions == null) return;
+
+                var currentSessionIds = new HashSet<string>(localSessions.Select(s => s.SourceAppId));
+                var viewModelIds = new HashSet<string>(_playerViewModel.MediaSessions
+                    .Where(s => !s.IsRemoteSession).Select(s => s.SessionId));
+
+                if (!currentSessionIds.SetEquals(viewModelIds))
+                {
+                    ReloadSessions(_npsManager);
+                    return;
+                }
+
+                foreach (var localSession in localSessions)
+                {
+                    try
+                    {
+                        var existingVm = _playerViewModel.MediaSessions
+                            .FirstOrDefault(s => s.SessionId == localSession.SourceAppId && !s.IsRemoteSession);
+                        if (existingVm == null) continue;
+
+                        var freshSource = localSession.ActivateMediaPlaybackDataSource();
+                        var playbackInfo = freshSource.GetMediaPlaybackInfo();
+                        var mediaInfo = freshSource.GetMediaObjectInfo();
+
+                        bool isPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State)
+                            ? playbackInfo.PlaybackState
+                            : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing;
+
+                        if (existingVm.IsPlaying != isPlaying)
+                            existingVm.IsPlaying = isPlaying;
+
+                        string title = mediaInfo.Title ?? "";
+                        string artist = mediaInfo.Artist ?? "";
+
+                        if (existingVm.Title != title || existingVm.Artist != artist)
+                        {
+                            existingVm.Title = title;
+                            existingVm.Artist = artist;
+                            existingVm.Album = mediaInfo.AlbumTitle ?? "";
+
+                            var thumbnailStream = freshSource.GetThumbnailStream();
+                            if (thumbnailStream != null)
+                            {
+                                var _ = existingVm.UpdateThumbnail(thumbnailStream);
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
+        private void RefreshSessionManager()
+        {
+            try
+            {
+                if (_npsManager != null)
+                {
+                    _npsManager.SessionListChanged -= NPSManager_SessionsChanged;
+                }
+
+                _npsManager = new NowPlayingSessionManager();
+                _npsManager.SessionListChanged += NPSManager_SessionsChanged;
+                ReloadSessions(_npsManager);
+            }
+            catch (Exception ex)
+            {
+                Timber.Log(LoggerLevel.Error, ex, "Error refreshing session manager");
+            }
         }
 
         // 媒体控制按钮事件处理

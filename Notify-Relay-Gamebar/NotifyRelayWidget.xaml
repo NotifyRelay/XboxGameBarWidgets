@@ -88,25 +88,19 @@
                                     <!-- WinIsland 风格的媒体项，支持点击展开/收起 -->
                                     <Border 
                                         Style="{StaticResource WinIslandMediaItemStyle}"
-                                        Tapped="MediaItem_Tapped">
-                                        <Grid HorizontalAlignment="Stretch">
+                                        Tapped="MediaItem_Tapped"
+                                        HorizontalAlignment="Center">
+                                        <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
                                                 <RowDefinition Height="Auto" />
                                             </Grid.RowDefinitions>
                                             
                                             <!-- 收起状态 - WinIsland 风格 -->
-                                            <Grid Grid.Row="0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-
+                                            <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <!-- 专辑封面 -->
                                                 <Border 
                                                     x:Name="CoverBorder"
-                                                    Grid.Column="0" 
                                                     Width="18" 
                                                     Height="18" 
                                                     CornerRadius="5">
@@ -118,36 +112,37 @@
                                                         d:Source="/Assets/StoreLogo.png"
                                                         Source="{x:Bind ThumbnailImageSource, Mode=OneWay}"
                                                         Stretch="Uniform" />
-                                                </Border>
-                                                
-                                                <!-- 歌曲信息 -->
-                                                <TextBlock 
-                                                    x:Name="TitleText"
-                                                    Grid.Column="1" 
-                                                    Margin="8,0,8,0"
-                                                    VerticalAlignment="Center"
-                                                    Text="{x:Bind Title, Mode=OneWay}" 
-                                                    FontSize="12"
-                                                    FontWeight="Normal"
-                                                    Foreground="White"
-                                                    TextTrimming="CharacterEllipsis"/>
-                                                
-                                                <!-- 播放状态指示器 -->
-                                                <Grid 
-                                                    x:Name="PlayIndicator"
-                                                    Grid.Column="2" 
-                                                    Width="20" 
-                                                    Height="18" 
-                                                    VerticalAlignment="Center">
-                                                    <TextBlock 
-                                                        HorizontalAlignment="Center"
+                                                    </Border>
+                                                    
+                                                    <!-- 歌曲信息 - 支持滚动 -->
+                                                    <ScrollViewer 
+                                                        Margin="8,0,8,0"
                                                         VerticalAlignment="Center"
-                                                        FontSize="14"
-                                                        Foreground="#CCCCCC">
-                                                        <Run Text="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(IsPlaying), Mode=OneWay}" />
-                                                    </TextBlock>
-                                                </Grid>
-                                            </Grid>
+                                                        HorizontalScrollBarVisibility="Auto"
+                                                        VerticalScrollBarVisibility="Disabled">
+                                                        <TextBlock 
+                                                            x:Name="TitleText"
+                                                            Text="{x:Bind Title, Mode=OneWay}" 
+                                                            FontSize="12"
+                                                            FontWeight="Normal"
+                                                            Foreground="White"/>
+                                                    </ScrollViewer>
+                                                    
+                                                    <!-- 播放状态指示器 -->
+                                                    <Grid 
+                                                        x:Name="PlayIndicator"
+                                                        Width="20" 
+                                                        Height="18" 
+                                                        VerticalAlignment="Center">
+                                                        <TextBlock 
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"
+                                                            FontSize="14"
+                                                            Foreground="#CCCCCC">
+                                                            <Run Text="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(IsPlaying), Mode=OneWay}" />
+                                                        </TextBlock>
+                                                    </Grid>
+                                                </StackPanel>
                                             
                                             <!-- 展开状态 -->
                                             <Grid 
