@@ -26,6 +26,9 @@ namespace NotifyRelayGamebar
         private ExampleNotificationManager _exampleNotificationManager;
         private NotificationManager _notificationManager;
         private MediaPlaybackManager _mediaPlaybackManager;
+        
+        // 记录展开状态的字典
+        private Dictionary<string, bool> _expandedStates = new Dictionary<string, bool>();
 
         public NotifyRelayWidget()
         {
@@ -235,6 +238,195 @@ namespace NotifyRelayGamebar
                 return button.CommandParameter.ToString();
             }
             return string.Empty;
+        }
+
+        // 处理媒体项点击事件
+        private async void MediaItem_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            var border = sender as Windows.UI.Xaml.Controls.Border;
+            if (border == null) return;
+
+            // 找到展开面板
+            var grid = border.Child as Windows.UI.Xaml.Controls.Grid;
+            if (grid == null) return;
+
+            var expandedPanel = grid.FindName("ExpandedPanel") as Windows.UI.Xaml.Controls.Grid;
+            if (expandedPanel == null) return;
+
+            // 获取设备ID（从DataContext）
+            var mediaSession = border.DataContext as Models.MediaSessionViewModel;
+            if (mediaSession == null) return;
+
+            // 切换展开状态
+            bool isExpanded;
+            if (_expandedStates.TryGetValue(mediaSession.DeviceId, out isExpanded))
+            {
+                isExpanded = !isExpanded;
+            }
+            else
+            {
+                isExpanded = true;
+            }
+
+            _expandedStates[mediaSession.DeviceId] = isExpanded;
+
+            // 获取封面相关元素
+            var coverBorder = grid.FindName("CoverBorder") as Windows.UI.Xaml.Controls.Border;
+            var coverImage = grid.FindName("CoverImage") as Windows.UI.Xaml.Controls.Image;
+            var titleText = grid.FindName("TitleText") as Windows.UI.Xaml.Controls.TextBlock;
+            var playIndicator = grid.FindName("PlayIndicator") as Windows.UI.Xaml.Controls.Grid;
+
+            // 获取展开态元素
+            var expandedTitle = grid.FindName("ExpandedTitle") as Windows.UI.Xaml.Controls.TextBlock;
+            var expandedArtist = grid.FindName("ExpandedArtist") as Windows.UI.Xaml.Controls.TextBlock;
+            var expandedDevice = grid.FindName("ExpandedDevice") as Windows.UI.Xaml.Controls.TextBlock;
+            var expandedControls = grid.FindName("ExpandedControls") as Windows.UI.Xaml.Controls.StackPanel;
+
+            if (coverBorder != null && coverImage != null && titleText != null && playIndicator != null)
+            {
+                if (isExpanded)
+                {
+                    // 展开动画
+                    expandedPanel.Visibility = Windows.UI.Xaml.Visibility.Visible;
+                    
+                    // 计算动画参数
+                    var startWidth = coverBorder.Width;
+                    var startHeight = coverBorder.Height;
+                    var startCornerRadius = coverBorder.CornerRadius.TopLeft;
+                    
+                    var targetWidth = 72.0;
+                    var targetHeight = 72.0;
+                    var targetCornerRadius = 14.0;
+                    
+                    // 执行动画
+                    var duration = 250; // 动画持续时间（毫秒）
+                    var startTime = DateTime.Now;
+                    
+                    while ((DateTime.Now - startTime).TotalMilliseconds < duration)
+                    {
+                        var progress = (DateTime.Now - startTime).TotalMilliseconds / duration;
+                        // 使用缓动函数（改为更平滑的EaseOutQuad）
+                        var easedProgress = 1 - Math.Pow(1 - progress, 3);
+                        
+                        // 更新封面大小
+                        coverBorder.Width = startWidth + (targetWidth - startWidth) * easedProgress;
+                        coverBorder.Height = startHeight + (targetHeight - startHeight) * easedProgress;
+                        coverBorder.CornerRadius = new Windows.UI.Xaml.CornerRadius(
+                            startCornerRadius + (targetCornerRadius - startCornerRadius) * easedProgress
+                        );
+                        
+                        // 更新图片大小
+                        coverImage.Width = coverBorder.Width;
+                        coverImage.Height = coverBorder.Height;
+                        
+                        // 淡出收起态的其他元素
+                        titleText.Opacity = 1.0 - progress;
+                        playIndicator.Opacity = 1.0 - progress;
+                        
+                        // 淡入展开态的元素
+                        if (expandedTitle != null) expandedTitle.Opacity = progress;
+                        if (expandedArtist != null) expandedArtist.Opacity = progress;
+                        if (expandedDevice != null) expandedDevice.Opacity = progress;
+                        if (expandedControls != null) expandedControls.Opacity = progress;
+                        
+                        // 让出UI线程
+                        await Task.Delay(16);
+                    }
+                    
+                    // 确保最终状态
+                    coverBorder.Width = targetWidth;
+                    coverBorder.Height = targetHeight;
+                    coverBorder.CornerRadius = new Windows.UI.Xaml.CornerRadius(targetCornerRadius);
+                    coverImage.Width = targetWidth;
+                    coverImage.Height = targetHeight;
+                    titleText.Opacity = 0;
+                    playIndicator.Opacity = 0;
+                    
+                    if (expandedTitle != null) expandedTitle.Opacity = 1;
+                    if (expandedArtist != null) expandedArtist.Opacity = 1;
+                    if (expandedDevice != null) expandedDevice.Opacity = 1;
+                    if (expandedControls != null) expandedControls.Opacity = 1;
+                    
+                    // 重置封面位置到展开态的正确位置
+                    // 计算从收起态到展开态的位置偏移
+                    Windows.UI.Xaml.Media.GeneralTransform transform = coverBorder.TransformToVisual(expandedPanel);
+                    var position = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+                    // 定位封面到展开态的第一行左侧
+                    coverBorder.Margin = new Windows.UI.Xaml.Thickness(-position.X, -position.Y, 0, 0);
+                }
+                else
+                {
+                    // 收起动画
+                    var startWidth = coverBorder.Width;
+                    var startHeight = coverBorder.Height;
+                    var startCornerRadius = coverBorder.CornerRadius.TopLeft;
+                    
+                    var targetWidth = 18.0;
+                    var targetHeight = 18.0;
+                    var targetCornerRadius = 5.0;
+                    
+                    // 执行动画
+                    var duration = 250;
+                    var startTime = DateTime.Now;
+                    
+                    while ((DateTime.Now - startTime).TotalMilliseconds < duration)
+                    {
+                        var progress = (DateTime.Now - startTime).TotalMilliseconds / duration;
+                        // 使用缓动函数（改为更平滑的EaseOutQuad）
+                        var easedProgress = 1 - Math.Pow(1 - progress, 3);
+                        
+                        // 更新封面大小
+                        coverBorder.Width = startWidth - (startWidth - targetWidth) * easedProgress;
+                        coverBorder.Height = startHeight - (startHeight - targetHeight) * easedProgress;
+                        coverBorder.CornerRadius = new Windows.UI.Xaml.CornerRadius(
+                            startCornerRadius - (startCornerRadius - targetCornerRadius) * easedProgress
+                        );
+                        
+                        // 更新图片大小
+                        coverImage.Width = coverBorder.Width;
+                        coverImage.Height = coverBorder.Height;
+                        
+                        // 淡入收起态的其他元素
+                        titleText.Opacity = progress;
+                        playIndicator.Opacity = progress;
+                        
+                        // 淡出展开态的元素
+                        if (expandedTitle != null) expandedTitle.Opacity = 1.0 - progress;
+                        if (expandedArtist != null) expandedArtist.Opacity = 1.0 - progress;
+                        if (expandedDevice != null) expandedDevice.Opacity = 1.0 - progress;
+                        if (expandedControls != null) expandedControls.Opacity = 1.0 - progress;
+                        
+                        await Task.Delay(16);
+                    }
+                    
+                    // 确保最终状态
+                    coverBorder.Width = targetWidth;
+                    coverBorder.Height = targetHeight;
+                    coverBorder.CornerRadius = new Windows.UI.Xaml.CornerRadius(targetCornerRadius);
+                    coverImage.Width = targetWidth;
+                    coverImage.Height = targetHeight;
+                    titleText.Opacity = 1;
+                    playIndicator.Opacity = 1;
+                    
+                    if (expandedTitle != null) expandedTitle.Opacity = 0;
+                    if (expandedArtist != null) expandedArtist.Opacity = 0;
+                    if (expandedDevice != null) expandedDevice.Opacity = 0;
+                    if (expandedControls != null) expandedControls.Opacity = 0;
+                    
+                    // 重置封面位置
+                    coverBorder.Margin = new Windows.UI.Xaml.Thickness(0);
+                    
+                    expandedPanel.Visibility = Windows.UI.Xaml.Visibility.Collapsed;
+                }
+            }
+        }
+
+        // 缓动函数
+        private double EaseOutBack(double t)
+        {
+            double c1 = 1.70158;
+            double c3 = c1 + 1;
+            return 1 + c3 * Math.Pow(t - 1, 3) + c1 * Math.Pow(t - 1, 2);
         }
     }
 }
