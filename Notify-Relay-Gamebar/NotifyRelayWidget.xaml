@@ -16,6 +16,10 @@
         <!-- Shuffle/Repeat templates removed because buttons were removed -->
         <converters:CollectionToVisibilityConverter x:Key="collectionToVisibilityConverter" />
         <converters:BooleanToVisibilityConverter x:Key="boolToVisibilityConverter" />
+        <LinearGradientBrush x:Key="WinIslandSpectrumBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#A8E7FF" Offset="0" />
+            <GradientStop Color="#63E6C6" Offset="1" />
+        </LinearGradientBrush>
         
         <!-- WinIsland 风格的样式 -->
         <Style x:Key="WinIslandMediaItemStyle" TargetType="Border">
@@ -89,7 +93,8 @@
                                     <Border 
                                         Style="{StaticResource WinIslandMediaItemStyle}"
                                         Tapped="MediaItem_Tapped"
-                                        HorizontalAlignment="Center">
+                                        HorizontalAlignment="Center"
+                                        DataContext="{Binding}">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
@@ -133,14 +138,55 @@
                                                         x:Name="PlayIndicator"
                                                         Width="20" 
                                                         Height="18" 
-                                                        VerticalAlignment="Center">
-                                                        <TextBlock 
-                                                            HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        DataContextChanged="PlayIndicator_DataContextChanged"
+                                                        Loaded="PlayIndicator_Loaded"
+                                                        Unloaded="PlayIndicator_Unloaded">
+                                                        <Grid.Resources>
+                                                            <Storyboard x:Name="SpectrumStoryboard" RepeatBehavior="Forever">
+                                                                <DoubleAnimation Storyboard.TargetName="Bar1Scale" Storyboard.TargetProperty="ScaleY" From="0.20" To="0.55" Duration="0:0:0.75" BeginTime="0:0:0.00" />
+                                                                <DoubleAnimation Storyboard.TargetName="Bar2Scale" Storyboard.TargetProperty="ScaleY" From="0.20" To="0.70" Duration="0:0:0.75" BeginTime="0:0:0.15" />
+                                                                <DoubleAnimation Storyboard.TargetName="Bar3Scale" Storyboard.TargetProperty="ScaleY" From="0.20" To="0.85" Duration="0:0:0.75" BeginTime="0:0:0.30" />
+                                                                <DoubleAnimation Storyboard.TargetName="Bar4Scale" Storyboard.TargetProperty="ScaleY" From="0.20" To="1.00" Duration="0:0:0.75" BeginTime="0:0:0.45" />
+                                                                <DoubleAnimation Storyboard.TargetName="Bar5Scale" Storyboard.TargetProperty="ScaleY" From="0.20" To="1.15" Duration="0:0:0.75" BeginTime="0:0:0.60" />
+                                                                <DoubleAnimation Storyboard.TargetName="Bar6Scale" Storyboard.TargetProperty="ScaleY" From="0.20" To="1.30" Duration="0:0:0.75" BeginTime="0:0:0.75" />
+                                                            </Storyboard>
+                                                        </Grid.Resources>
+                                                        <StackPanel
+                                                            Orientation="Horizontal"
                                                             VerticalAlignment="Center"
-                                                            FontSize="14"
-                                                            Foreground="#CCCCCC">
-                                                            <Run Text="{x:Bind local:PlayerBindingExtensions.IsPlayingGlyph(IsPlaying), Mode=OneWay}" />
-                                                        </TextBlock>
+                                                            HorizontalAlignment="Center">
+                                                            <Rectangle x:Name="Bar1" Width="2" Height="14" Margin="0,0,1,0" RadiusX="1" RadiusY="1" Fill="{StaticResource WinIslandSpectrumBrush}" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                                <Rectangle.RenderTransform>
+                                                                    <ScaleTransform x:Name="Bar1Scale" ScaleY="0.35" />
+                                                                </Rectangle.RenderTransform>
+                                                            </Rectangle>
+                                                            <Rectangle x:Name="Bar2" Width="2" Height="14" Margin="0,0,1,0" RadiusX="1" RadiusY="1" Fill="{StaticResource WinIslandSpectrumBrush}" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                                <Rectangle.RenderTransform>
+                                                                    <ScaleTransform x:Name="Bar2Scale" ScaleY="0.45" />
+                                                                </Rectangle.RenderTransform>
+                                                            </Rectangle>
+                                                            <Rectangle x:Name="Bar3" Width="2" Height="14" Margin="0,0,1,0" RadiusX="1" RadiusY="1" Fill="{StaticResource WinIslandSpectrumBrush}" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                                <Rectangle.RenderTransform>
+                                                                    <ScaleTransform x:Name="Bar3Scale" ScaleY="0.55" />
+                                                                </Rectangle.RenderTransform>
+                                                            </Rectangle>
+                                                            <Rectangle x:Name="Bar4" Width="2" Height="14" Margin="0,0,1,0" RadiusX="1" RadiusY="1" Fill="{StaticResource WinIslandSpectrumBrush}" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                                <Rectangle.RenderTransform>
+                                                                    <ScaleTransform x:Name="Bar4Scale" ScaleY="0.40" />
+                                                                </Rectangle.RenderTransform>
+                                                            </Rectangle>
+                                                            <Rectangle x:Name="Bar5" Width="2" Height="14" Margin="0,0,1,0" RadiusX="1" RadiusY="1" Fill="{StaticResource WinIslandSpectrumBrush}" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                                <Rectangle.RenderTransform>
+                                                                    <ScaleTransform x:Name="Bar5Scale" ScaleY="0.30" />
+                                                                </Rectangle.RenderTransform>
+                                                            </Rectangle>
+                                                            <Rectangle x:Name="Bar6" Width="2" Height="14" RadiusX="1" RadiusY="1" Fill="{StaticResource WinIslandSpectrumBrush}" VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                                                <Rectangle.RenderTransform>
+                                                                    <ScaleTransform x:Name="Bar6Scale" ScaleY="0.50" />
+                                                                </Rectangle.RenderTransform>
+                                                            </Rectangle>
+                                                        </StackPanel>
                                                     </Grid>
                                                 </StackPanel>
                                             

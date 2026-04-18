@@ -188,6 +188,7 @@ namespace NotifyRelayGamebar
                     
                     // 检查是否有有效信息（参考WinIsland逻辑）
                     bool hasValidInfo = !string.IsNullOrWhiteSpace(remoteSession.Title) || !string.IsNullOrWhiteSpace(remoteSession.Artist);
+                    bool shouldPulse = (DateTime.Now - remoteSession.LastTitleUpdateTime).TotalSeconds <= 5;
                     
                     if (existingSession != null)
                     {
@@ -196,7 +197,7 @@ namespace NotifyRelayGamebar
                             // 更新现有会话的属性
                             existingSession.Title = remoteSession.Title;
                             existingSession.Artist = remoteSession.Artist;
-                            existingSession.IsPlaying = remoteSession.IsPlaying;
+                            existingSession.IsPlaying = remoteSession.IsPlaying || shouldPulse;
 
                             // 只有当封面 URL 发生变化时才更新封面
                             if (!string.IsNullOrEmpty(remoteSession.CoverUrl))
@@ -220,7 +221,7 @@ namespace NotifyRelayGamebar
                             DeviceName = remoteSession.DeviceName,
                             Title = remoteSession.Title,
                             Artist = remoteSession.Artist,
-                            IsPlaying = remoteSession.IsPlaying,
+                            IsPlaying = remoteSession.IsPlaying || shouldPulse,
                             IsPlayPauseEnabled = true,
                             IsPreviousEnabled = true,
                             IsNextEnabled = true,
@@ -490,18 +491,44 @@ namespace NotifyRelayGamebar
                 
                 if (existingSession == null)
                 {
+                    session.LastTitleUpdateTime = DateTime.Now;
+                    session.LastUpdateTime = DateTime.Now;
                     // 添加新会话
                     _remoteSessions.Add(session);
+                    ScheduleRemotePulse(session.DeviceId, session.LastTitleUpdateTime);
                 }
                 else
                 {
+                    bool titleChanged = !string.Equals(existingSession.Title, session.Title, StringComparison.Ordinal);
+                    if (titleChanged)
+                    {
+                        existingSession.LastTitleUpdateTime = DateTime.Now;
+                    }
                     // 更新现有会话
                     existingSession.Update(session.Title, session.Artist, session.CoverUrl, session.IsPlaying);
+
+                    if (titleChanged)
+                    {
+                        ScheduleRemotePulse(existingSession.DeviceId, existingSession.LastTitleUpdateTime);
+                    }
                 }
             }
             
             // 触发重新加载以更新列表
             ReloadSessions(_npsManager);
+        }
+
+        private void ScheduleRemotePulse(string deviceId, DateTime pulseStart)
+        {
+            var _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                var current = _remoteSessions.FirstOrDefault(s => s.DeviceId == deviceId);
+                if (current != null && current.LastTitleUpdateTime == pulseStart)
+                {
+                    UpdateMediaSessionsViewModel();
+                }
+            });
         }
 
         private async Task UpdatePlayer(MediaPlaybackDataSource source)

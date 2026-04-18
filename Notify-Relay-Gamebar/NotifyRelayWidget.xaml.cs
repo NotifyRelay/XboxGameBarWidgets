@@ -10,6 +10,7 @@ using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 
@@ -17,6 +18,18 @@ namespace NotifyRelayGamebar
 {
     public sealed partial class NotifyRelayWidget : Page
     {
+        private sealed class SpectrumBindingToken
+        {
+            public Models.MediaSessionViewModel ViewModel { get; }
+            public long Token { get; }
+
+            public SpectrumBindingToken(Models.MediaSessionViewModel viewModel, long token)
+            {
+                ViewModel = viewModel;
+                Token = token;
+            }
+        }
+
         private XboxGameBarWidget widget;
         private PlayerViewModel PlayerViewModel { get; set; }
         private NotificationViewModel NotificationViewModel { get; set; }
@@ -36,6 +49,94 @@ namespace NotifyRelayGamebar
 
             PlayerViewModel = new PlayerViewModel();
             NotificationViewModel = new NotificationViewModel();
+        }
+
+        private void PlayIndicator_DataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+        {
+            UnregisterPlayIndicatorCallback(sender);
+
+            if (sender.DataContext is Models.MediaSessionViewModel viewModel)
+            {
+                var token = viewModel.RegisterPropertyChangedCallback(
+                    Models.MediaSessionViewModel.IsPlayingProperty,
+                    (d, p) =>
+                    {
+                        var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            UpdateSpectrumState(sender, viewModel.IsPlaying);
+                        });
+                    });
+
+                sender.Tag = new SpectrumBindingToken(viewModel, token);
+                UpdateSpectrumState(sender, viewModel.IsPlaying);
+            }
+            else
+            {
+                StopSpectrum(sender);
+            }
+        }
+
+        private void PlayIndicator_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element)
+            {
+                if (element.DataContext is Models.MediaSessionViewModel viewModel)
+                {
+                    UpdateSpectrumState(element, viewModel.IsPlaying);
+                }
+                else
+                {
+                    StopSpectrum(element);
+                }
+            }
+        }
+
+        private void PlayIndicator_Unloaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element)
+            {
+                StopSpectrum(element);
+                UnregisterPlayIndicatorCallback(element);
+            }
+        }
+
+        private static void UpdateSpectrumState(FrameworkElement element, bool isPlaying)
+        {
+            if (isPlaying)
+            {
+                StartSpectrum(element);
+            }
+            else
+            {
+                StopSpectrum(element);
+            }
+        }
+
+        private static void StartSpectrum(FrameworkElement element)
+        {
+            if (element.Resources["SpectrumStoryboard"] is Storyboard storyboard)
+            {
+                storyboard.Begin();
+            }
+        }
+
+        private static void StopSpectrum(FrameworkElement element)
+        {
+            if (element.Resources["SpectrumStoryboard"] is Storyboard storyboard)
+            {
+                storyboard.Stop();
+            }
+        }
+
+        private static void UnregisterPlayIndicatorCallback(FrameworkElement element)
+        {
+            if (element.Tag is SpectrumBindingToken token)
+            {
+                token.ViewModel.UnregisterPropertyChangedCallback(
+                    Models.MediaSessionViewModel.IsPlayingProperty,
+                    token.Token);
+                element.Tag = null;
+            }
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

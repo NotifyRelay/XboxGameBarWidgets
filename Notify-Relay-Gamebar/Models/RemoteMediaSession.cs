@@ -14,6 +14,7 @@ namespace NotifyRelayGamebar.Models
         public string CoverUrl { get; set; }
         public bool IsPlaying { get; set; }
         public DateTime LastUpdateTime { get; set; }
+        public DateTime LastTitleUpdateTime { get; set; }
 
         public void Update(string title, string artist, string coverUrl, bool isPlaying)
         {
