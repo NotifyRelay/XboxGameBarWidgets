@@ -136,6 +136,11 @@
     <Compile Include="Models\NotificationModel.cs" />
     <Compile Include="Models\RemoteMediaSession.cs" />
     <Compile Include="Models\MediaSessionViewModel.cs" />
+    <Compile Include="Models\SuperIslandParamV2Parser.cs" />
+    <Compile Include="Models\SuperIslandState.cs" />
+    <Compile Include="Models\SuperIslandStore.cs" />
+    <Compile Include="Models\SuperIslandTimerInfo.cs" />
+    <Compile Include="Models\SuperIslandViewModel.cs" />
     <Compile Include="NotificationService.cs" />
     <Compile Include="NotificationViewModel.cs" />
     <Compile Include="PlayerBindingExtensions.cs" />

@@ -83,7 +83,7 @@ namespace NotifyRelayGamebar
                 string truncatedMessage = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
                 Timber.Log(LoggerLevel.Info, "Received message: {0}", truncatedMessage);
 
-                // Check for media update
+                // Check for media update and superisland update
                 try
                 {
                     var jsonObject = JsonObject.Parse(message);
@@ -113,6 +113,12 @@ namespace NotifyRelayGamebar
                         }
                         return;
                     }
+
+                    if (jsonObject.ContainsKey("type") && jsonObject["type"].GetString() == "superisland_update")
+                    {
+                        await HandleSuperIslandUpdateAsync(jsonObject);
+                        return;
+                    }
                 }
                 catch 
                 {
@@ -134,6 +140,42 @@ namespace NotifyRelayGamebar
                 // 异常时也只打印消息的前100个字符
                 string truncatedMessage = message.Length > 100 ? message.Substring(0, 100) + "..." : message;
                 Timber.Log(LoggerLevel.Error, ex, "Error processing notification message: {0}", truncatedMessage);
+            }
+        }
+
+        private async Task HandleSuperIslandUpdateAsync(JsonObject jsonObject)
+        {
+            try
+            {
+                var deviceId = jsonObject.ContainsKey("deviceId") ? jsonObject["deviceId"].GetString() : string.Empty;
+                var deviceName = jsonObject.ContainsKey("deviceName") ? jsonObject["deviceName"].GetString() : string.Empty;
+                var sourceId = jsonObject.ContainsKey("sourceId") ? jsonObject["sourceId"].GetString() : string.Empty;
+                var isEnd = jsonObject.ContainsKey("isEnd") && jsonObject["isEnd"].ValueType == JsonValueType.Boolean
+                    ? jsonObject["isEnd"].GetBoolean()
+                    : false;
+
+                JsonObject payload = null;
+                if (jsonObject.ContainsKey("payload") && jsonObject["payload"].ValueType == JsonValueType.String)
+                {
+                    var rawPayload = jsonObject["payload"].GetString();
+                    JsonObject.TryParse(rawPayload, out payload);
+                }
+
+                if (payload == null && jsonObject.ContainsKey("state") && jsonObject["state"].ValueType == JsonValueType.Object)
+                {
+                    payload = jsonObject["state"].GetObject();
+                }
+
+                if (string.IsNullOrWhiteSpace(sourceId))
+                {
+                    return;
+                }
+
+                await _viewModel.AddOrUpdateSuperIsland(deviceId, deviceName, sourceId, isEnd, payload);
+            }
+            catch (Exception ex)
+            {
+                Timber.Log(LoggerLevel.Error, ex, "Error processing superisland update");
             }
         }
 

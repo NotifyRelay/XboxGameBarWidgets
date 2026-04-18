@@ -67,6 +67,17 @@
             <Setter Property="Foreground" Value="#999999" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
+
+        <Style x:Key="WinIslandSuperIslandItemStyle" TargetType="Border">
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background">
+                <Setter.Value>
+                    <SolidColorBrush Opacity="0.8" Color="#000000" />
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Padding" Value="10" />
+        </Style>
     </Page.Resources>
 
     <Grid>
@@ -277,6 +288,129 @@
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <ItemsControl
+                            x:Name="SuperIslandView"
+                            d:Visibility="Visible"
+                            Margin="6,8,6,8"
+                            ItemsSource="{x:Bind NotificationViewModel.SuperIslands, Mode=OneWay}"
+                            Visibility="{x:Bind NotificationViewModel.HasSuperIslands, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}"
+                            Background="Transparent">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:SuperIslandViewModel">
+                                    <Border
+                                        Style="{StaticResource WinIslandSuperIslandItemStyle}"
+                                        Tapped="SuperIslandItem_Tapped"
+                                        HorizontalAlignment="Center"
+                                        DataContext="{Binding}">
+                                        <Grid>
+                                            <StackPanel
+                                                x:Name="SmallPanel"
+                                                Visibility="{x:Bind IsExpanded, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}, ConverterParameter=True}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Border
+                                                        Width="20"
+                                                        Height="20"
+                                                        CornerRadius="6"
+                                                        VerticalAlignment="Center"
+                                                        Visibility="{x:Bind HasImage, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}">
+                                                        <Image
+                                                            Width="20"
+                                                            Height="20"
+                                                            Source="{x:Bind ImageSource, Mode=OneWay}"
+                                                            Stretch="UniformToFill" />
+                                                    </Border>
+
+                                                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                                                        <TextBlock
+                                                            Text="{x:Bind Title, Mode=OneWay}"
+                                                            Style="{StaticResource WinIslandTitleTextStyle}"
+                                                            FontSize="12" />
+                                                        <TextBlock
+                                                            Text="{x:Bind SubTitle, Mode=OneWay}"
+                                                            Style="{StaticResource WinIslandSubtitleTextStyle}" />
+                                                    </StackPanel>
+
+                                                    <TextBlock
+                                                        Grid.Column="2"
+                                                        Text="{x:Bind TimerText, Mode=OneWay}"
+                                                        Style="{StaticResource WinIslandDeviceTextStyle}"
+                                                        VerticalAlignment="Center"
+                                                        Visibility="{x:Bind HasTimer, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}" />
+                                                </Grid>
+
+                                                <ProgressBar
+                                                    Margin="0,6,0,0"
+                                                    Maximum="100"
+                                                    Value="{x:Bind ProgressPercent, Mode=OneWay}"
+                                                    Visibility="{x:Bind HasProgress, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}" />
+                                            </StackPanel>
+
+                                            <StackPanel
+                                                x:Name="ExpandedPanel"
+                                                Visibility="{x:Bind IsExpanded, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <Border
+                                                        Width="48"
+                                                        Height="48"
+                                                        CornerRadius="10"
+                                                        VerticalAlignment="Top"
+                                                        Visibility="{x:Bind HasImage, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}">
+                                                        <Image
+                                                            Width="48"
+                                                            Height="48"
+                                                            Source="{x:Bind ImageSource, Mode=OneWay}"
+                                                            Stretch="UniformToFill" />
+                                                    </Border>
+
+                                                    <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                                        <TextBlock
+                                                            Text="{x:Bind Title, Mode=OneWay}"
+                                                            Style="{StaticResource WinIslandTitleTextStyle}" />
+                                                        <TextBlock
+                                                            Text="{x:Bind SubTitle, Mode=OneWay}"
+                                                            Style="{StaticResource WinIslandSubtitleTextStyle}"
+                                                            Margin="0,4,0,0" />
+                                                        <TextBlock
+                                                            Text="{x:Bind Extra, Mode=OneWay}"
+                                                            Style="{StaticResource WinIslandSubtitleTextStyle}"
+                                                            Margin="0,2,0,0"
+                                                            Visibility="{x:Bind HasExtra, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}" />
+                                                        <TextBlock
+                                                            Text="{x:Bind DeviceName, Mode=OneWay}"
+                                                            Style="{StaticResource WinIslandDeviceTextStyle}"
+                                                            Margin="0,4,0,0" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <StackPanel Margin="0,10,0,0">
+                                                    <TextBlock
+                                                        Text="{x:Bind TimerText, Mode=OneWay}"
+                                                        Style="{StaticResource WinIslandDeviceTextStyle}"
+                                                        Visibility="{x:Bind HasTimer, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}" />
+                                                    <ProgressBar
+                                                        Margin="0,6,0,0"
+                                                        Maximum="100"
+                                                        Value="{x:Bind ProgressPercent, Mode=OneWay}"
+                                                        Visibility="{x:Bind HasProgress, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}" />
+                                                </StackPanel>
+                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

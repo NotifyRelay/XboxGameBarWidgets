@@ -3,6 +3,9 @@ using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Linq;
 using System.Threading.Tasks;
 using TimberLog;
 using Windows.ApplicationModel.Core;
@@ -17,6 +20,7 @@ namespace NotifyRelayGamebar
 {
     public class NotificationViewModel : INotifyPropertyChanged
     {
+        private static readonly TimeSpan SuperIslandTimeout = TimeSpan.FromSeconds(10);
         private ObservableCollection<NotificationModel> _notifications;
         public ObservableCollection<NotificationModel> Notifications
         {
@@ -41,9 +45,34 @@ namespace NotifyRelayGamebar
 
         public event PropertyChangedEventHandler PropertyChanged;
 
+        private ObservableCollection<SuperIslandViewModel> _superIslands;
+        public ObservableCollection<SuperIslandViewModel> SuperIslands
+        {
+            get { return _superIslands; }
+            set
+            {
+                _superIslands = value;
+                OnPropertyChanged(nameof(SuperIslands));
+            }
+        }
+
+        private bool _hasSuperIslands;
+        public bool HasSuperIslands
+        {
+            get { return _hasSuperIslands; }
+            set
+            {
+                _hasSuperIslands = value;
+                OnPropertyChanged(nameof(HasSuperIslands));
+            }
+        }
+
         public NotificationViewModel()
         {
             Notifications = new ObservableCollection<NotificationModel>();
+            SuperIslands = new ObservableCollection<SuperIslandViewModel>();
+            SuperIslands.CollectionChanged += SuperIslands_CollectionChanged;
+            UpdateHasSuperIslands();
         }
 
         private StackPanel _toastStack;
@@ -92,6 +121,56 @@ namespace NotifyRelayGamebar
                 {
                     Timber.Log(LoggerLevel.Warn, "_toastStack is null in AddNotification");
                 }
+            });
+        }
+
+        public async Task AddOrUpdateSuperIsland(string deviceId, string deviceName, string sourceId, bool isEnd, Windows.Data.Json.JsonObject payload)
+        {
+            var dispatcherToUse = _uiDispatcher ?? CoreApplication.MainView.Dispatcher;
+            await dispatcherToUse.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                var now = DateTimeOffset.Now;
+                if (isEnd)
+                {
+                    RemoveSuperIsland(sourceId);
+                    SuperIslandStore.RemoveExact(sourceId);
+                    return;
+                }
+
+                if (payload == null)
+                {
+                    return;
+                }
+
+                var merged = SuperIslandStore.ApplyIncoming(sourceId, payload);
+                if (merged == null)
+                {
+                    RemoveSuperIsland(sourceId);
+                    return;
+                }
+
+                if (!_superIslandMap.TryGetValue(sourceId, out var viewModel))
+                {
+                    viewModel = new SuperIslandViewModel
+                    {
+                        SourceId = sourceId,
+                        DeviceId = deviceId,
+                        DeviceName = deviceName
+                    };
+                    _superIslandMap[sourceId] = viewModel;
+                    SuperIslands.Insert(0, viewModel);
+                }
+                else
+                {
+                    viewModel.DeviceId = deviceId;
+                    viewModel.DeviceName = deviceName;
+                }
+
+                viewModel.UpdateFromState(merged);
+                _ = viewModel.UpdateImageAsync(merged.Pics);
+                _superIslandLastSeen[sourceId] = now;
+                EnsureSuperIslandTimer();
+                UpdateHasSuperIslands();
             });
         }
     
@@ -311,6 +390,79 @@ namespace NotifyRelayGamebar
             catch (Exception ex)
             {
                 Timber.Log(LoggerLevel.Error, ex, "Error creating internal toast UI");
+            }
+        }
+
+        private readonly Dictionary<string, SuperIslandViewModel> _superIslandMap = new Dictionary<string, SuperIslandViewModel>();
+        private readonly Dictionary<string, DateTimeOffset> _superIslandLastSeen = new Dictionary<string, DateTimeOffset>();
+        private DispatcherTimer _superIslandTimer;
+
+        private void RemoveSuperIsland(string sourceId)
+        {
+            if (_superIslandMap.TryGetValue(sourceId, out var viewModel))
+            {
+                SuperIslands.Remove(viewModel);
+                _superIslandMap.Remove(sourceId);
+            }
+
+            _superIslandLastSeen.Remove(sourceId);
+
+            EnsureSuperIslandTimer();
+            UpdateHasSuperIslands();
+        }
+
+        private void SuperIslands_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            UpdateHasSuperIslands();
+        }
+
+        private void UpdateHasSuperIslands()
+        {
+            HasSuperIslands = SuperIslands != null && SuperIslands.Count > 0;
+        }
+
+        private void EnsureSuperIslandTimer()
+        {
+            var hasItems = SuperIslands.Count > 0;
+            if (!hasItems)
+            {
+                if (_superIslandTimer != null)
+                {
+                    _superIslandTimer.Stop();
+                    _superIslandTimer.Tick -= SuperIslandTimer_Tick;
+                    _superIslandTimer = null;
+                }
+                return;
+            }
+
+            if (_superIslandTimer == null)
+            {
+                _superIslandTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromSeconds(1)
+                };
+                _superIslandTimer.Tick += SuperIslandTimer_Tick;
+                _superIslandTimer.Start();
+            }
+        }
+
+        private void SuperIslandTimer_Tick(object sender, object e)
+        {
+            var now = DateTimeOffset.Now;
+            foreach (var item in SuperIslands)
+            {
+                item.UpdateTimer(now);
+            }
+
+            var expired = _superIslandLastSeen
+                .Where(entry => now - entry.Value > SuperIslandTimeout)
+                .Select(entry => entry.Key)
+                .ToList();
+
+            foreach (var sourceId in expired)
+            {
+                RemoveSuperIsland(sourceId);
+                SuperIslandStore.RemoveExact(sourceId);
             }
         }
         

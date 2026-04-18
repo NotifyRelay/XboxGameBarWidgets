@@ -13,6 +13,7 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
+using NotifyRelayGamebar.Models;
 
 namespace NotifyRelayGamebar
 {
@@ -519,6 +520,14 @@ namespace NotifyRelayGamebar
                     
                     expandedPanel.Visibility = Windows.UI.Xaml.Visibility.Collapsed;
                 }
+            }
+        }
+
+        private void SuperIslandItem_Tapped(object sender, Windows.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (sender is Border border && border.DataContext is SuperIslandViewModel viewModel)
+            {
+                viewModel.IsExpanded = !viewModel.IsExpanded;
             }
         }
 
