@@ -1,0 +1,44 @@
+<Page
+    x:Class="NotifyRelayGamebar.WidgetSettings"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:NotifyRelayGamebar.Models"
+    mc:Ignorable="d">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <StackPanel Margin="16" Width="280">
+            <TextBlock Text="设置" FontSize="18" FontWeight="Bold" Margin="0,0,0,12" />
+
+            <ToggleSwitch
+                Header="在线歌词"
+                IsOn="{x:Bind LyricsSettingsViewModel.IsOnlineLyricsEnabled, Mode=TwoWay}" />
+
+            <TextBlock Text="歌词时间偏移 (ms)" Foreground="#666666" Margin="0,12,0,4" />
+            <Slider
+                Minimum="-5000"
+                Maximum="5000"
+                StepFrequency="100"
+                SmallChange="100"
+                LargeChange="500"
+                Value="{x:Bind LyricsSettingsViewModel.LyricsDelayMs, Mode=TwoWay}"
+                IsEnabled="{x:Bind LyricsSettingsViewModel.IsOnlineLyricsEnabled, Mode=OneWay}" />
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,8">
+                <TextBlock Text="{x:Bind LyricsSettingsViewModel.LyricsDelayMs, Mode=OneWay}" Foreground="#888888" />
+                <TextBlock Text=" ms" Foreground="#888888" />
+            </StackPanel>
+
+            <TextBlock Text="歌词源优先级" Foreground="#666666" Margin="0,8,0,4" />
+            <ComboBox
+                SelectedValue="{x:Bind LyricsSettingsViewModel.LyricsSourcePriority, Mode=TwoWay}"
+                SelectedValuePath="Tag"
+                IsEnabled="{x:Bind LyricsSettingsViewModel.IsOnlineLyricsEnabled, Mode=OneWay}">
+                <ComboBoxItem Content="网易 163 优先" Tag="163" />
+                <ComboBoxItem Content="LrcLib 优先" Tag="lrclib" />
+            </ComboBox>
+
+            <TextBlock Text="负值表示歌词提前，正值表示歌词延后" Foreground="#888888" Margin="0,8,0,0" FontSize="10" />
+        </StackPanel>
+    </Grid>
+</Page>

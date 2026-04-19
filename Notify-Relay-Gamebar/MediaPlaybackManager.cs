@@ -38,14 +38,12 @@ namespace NotifyRelayGamebar
         private List<RemoteMediaSession> _remoteSessions = new List<RemoteMediaSession>();
         
         private MediaPlaybackDataSource _mediaPlaybackSource;
+        private bool _mediaPlaybackSourceSubscribed;
         private int _sessionIndex = 0;
 
         private DispatcherTimer _pollTimer;
         private DateTime _lastManagerRefresh = DateTime.MinValue;
         private DateTime _lastFullSessionRefresh = DateTime.MinValue;
-        private const int LyricDelayMs = 0;
-        private readonly string _lyricsSource = LyricsService.DefaultSource;
-        private readonly bool _lyricsFallback = true;
 
         public MediaPlaybackManager(
             XboxGameBarWidget widget,
@@ -65,6 +63,8 @@ namespace NotifyRelayGamebar
             _notificationViewModel = notificationViewModel;
             _updateExampleNotifications = updateExampleNotifications;
             _isInPinnedAndClosedState = isInPinnedAndClosedState;
+
+            LyricsSettings.SettingsChanged += LyricsSettings_SettingsChanged;
         }
 
         public IList<NowPlayingSession> GetAllSessions()
@@ -452,6 +452,7 @@ namespace NotifyRelayGamebar
                 {
                     _mediaPlaybackSource = nps.ActivateMediaPlaybackDataSource();
                     _mediaPlaybackSource.MediaPlaybackDataChanged += MediaPlaybackSource_MediaPlaybackDataChanged;
+                    _mediaPlaybackSourceSubscribed = true;
                     await UpdatePlayer(_mediaPlaybackSource);
                 }
                 else if (_currentSession is RemoteMediaSession rms)
@@ -465,6 +466,8 @@ namespace NotifyRelayGamebar
         {
             _pollTimer?.Stop();
             _pollTimer = null;
+
+            LyricsSettings.SettingsChanged -= LyricsSettings_SettingsChanged;
 
             // Unregister events
             if (_npsManager != null)
@@ -488,7 +491,7 @@ namespace NotifyRelayGamebar
 
         private void UnloadSession()
         {
-            if (_mediaPlaybackSource != null)
+            if (_mediaPlaybackSource != null && _mediaPlaybackSourceSubscribed)
             {
                 try
                 {
@@ -496,7 +499,11 @@ namespace NotifyRelayGamebar
                 }
                 catch (Exception ex)
                 {
-                    Timber.Log(LoggerLevel.Error, ex);
+                    Timber.Log(LoggerLevel.Warn, ex, "Failed to unsubscribe MediaPlaybackDataChanged");
+                }
+                finally
+                {
+                    _mediaPlaybackSourceSubscribed = false;
                 }
             }
             _mediaPlaybackSource = null;
@@ -876,10 +883,47 @@ namespace NotifyRelayGamebar
             }
         }
 
+        private async void LyricsSettings_SettingsChanged(object sender, EventArgs e)
+        {
+            if (_dispatcher == null)
+            {
+                return;
+            }
+
+            await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                foreach (var session in _playerViewModel.MediaSessions.Where(s => !s.IsRemoteSession))
+                {
+                    if (!LyricsSettings.OnlineLyricsEnabled)
+                    {
+                        session.LyricLines = null;
+                        session.CurrentLyricLine = string.Empty;
+                        session.Title = session.OriginalTitle;
+                        session.LyricsKey = string.Empty;
+                        session.LyricsRequestId = 0;
+                        continue;
+                    }
+
+                    EnsureLyricsForSessionAsync(session, session.OriginalTitle, session.Artist, session.DurationSeconds);
+                }
+            });
+        }
+
         private void EnsureLyricsForSessionAsync(MediaSessionViewModel session, string title, string artist, int durationSeconds)
         {
             if (session == null || session.IsRemoteSession)
             {
+                return;
+            }
+
+            if (!LyricsSettings.OnlineLyricsEnabled)
+            {
+                session.OriginalTitle = title ?? string.Empty;
+                session.Title = session.OriginalTitle;
+                session.LyricLines = null;
+                session.CurrentLyricLine = string.Empty;
+                session.LyricsKey = string.Empty;
+                session.LyricsRequestId = 0;
                 return;
             }
 
@@ -912,7 +956,8 @@ namespace NotifyRelayGamebar
 
         private async Task FetchLyricsForSessionAsync(MediaSessionViewModel session, string title, string artist, int durationSeconds, string key, int requestId)
         {
-            var lines = await LyricsService.FetchLyricsAsync(title, artist, durationSeconds, _lyricsSource, _lyricsFallback).ConfigureAwait(false);
+            var source = LyricsSettings.LyricsSourcePriority;
+            var lines = await LyricsService.FetchLyricsAsync(title, artist, durationSeconds, source, true).ConfigureAwait(false);
             await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 if (session == null || session.LyricsRequestId != requestId || !string.Equals(session.LyricsKey, key, StringComparison.Ordinal))
@@ -936,6 +981,13 @@ namespace NotifyRelayGamebar
                 return;
             }
 
+            if (!LyricsSettings.OnlineLyricsEnabled)
+            {
+                session.CurrentLyricLine = string.Empty;
+                session.Title = session.OriginalTitle;
+                return;
+            }
+
             if (session.LyricLines == null || session.LyricLines.Count == 0)
             {
                 session.CurrentLyricLine = string.Empty;
@@ -943,7 +995,7 @@ namespace NotifyRelayGamebar
                 return;
             }
 
-            var line = LyricsService.GetCurrentLine(session.LyricLines, (long)position.TotalMilliseconds, LyricDelayMs);
+            var line = LyricsService.GetCurrentLine(session.LyricLines, (long)position.TotalMilliseconds, LyricsSettings.LyricsDelayMs);
             if (line == null)
             {
                 session.CurrentLyricLine = string.Empty;

@@ -1,7 +1,3 @@
-#if !DEBUG
-using Microsoft.AppCenter;
-using Microsoft.AppCenter.Crashes;
-#endif
 using Microsoft.Gaming.XboxGameBar;
 using System;
 using System.Threading.Tasks;
@@ -23,6 +19,7 @@ namespace NotifyRelayGamebar
     sealed partial class App : Application
     {
         private XboxGameBarWidget playerWidget = null;
+        private XboxGameBarWidget settingsWidget = null;
 
         /// <summary>
         /// Initializes the singleton application object.  This is the first line of authored code
@@ -35,25 +32,32 @@ namespace NotifyRelayGamebar
             this.UnhandledException += OnUnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-            // Add Loggers
-#if DEBUG
-            Timber.Plant(new Timber.DebugTree());
-            Timber.Plant(new Utils.FileLoggingTree());
-#else
-            Timber.Plant(new Utils.AppCenterLoggingTree());
-            // Removed AppCenter secret usage; do not start AppCenter without a configured key.
-            // If you want to enable AppCenter later, provide the secret here or restore `Keys\AppCenterKey.cs`.
-#endif
+                    // Add Loggers
+                    Timber.Plant(new Utils.FileLoggingTree());
+                    Timber.Plant(new Utils.VsOutputLoggingTree());
+        #if DEBUG
+                Timber.Plant(new Timber.DebugTree());
+        #else
+                Timber.Plant(new Utils.AppCenterLoggingTree());
+                // Removed AppCenter secret usage; do not start AppCenter without a configured key.
+                // If you want to enable AppCenter later, provide the secret here or restore `Keys\AppCenterKey.cs`.
+        #endif
+
+                    var version = Package.Current.Id.Version;
+                    var versionText = $"{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+                    Timber.Log(LoggerLevel.Info, "App startup. Version={0}", versionText);
         }
 
         protected override void OnActivated(IActivatedEventArgs args)
         {
+            Timber.Log(LoggerLevel.Info, "OnActivated: Kind={0}", args?.Kind.ToString() ?? "<null>");
             XboxGameBarWidgetActivatedEventArgs widgetArgs = null;
 
             if (args.Kind == ActivationKind.Protocol)
             {
                 var protocolArgs = args as IProtocolActivatedEventArgs;
                 string scheme = protocolArgs.Uri.Scheme;
+                Timber.Log(LoggerLevel.Info, "OnActivated: Protocol scheme={0}", scheme ?? "<null>");
                 if (scheme.Equals("ms-gamebarwidget"))
                 {
                     widgetArgs = args as XboxGameBarWidgetActivatedEventArgs;
@@ -62,6 +66,12 @@ namespace NotifyRelayGamebar
 
             if (widgetArgs != null)
             {
+                Timber.Log(
+                    LoggerLevel.Info,
+                    "GameBar activation: AppExtensionId={0}, IsLaunch={1}, Uri={2}",
+                    widgetArgs.AppExtensionId ?? "<null>",
+                    widgetArgs.IsLaunchActivation,
+                    widgetArgs.Uri != null ? widgetArgs.Uri.ToString() : "<null>");
                 //
                 // Activation Notes:
                 //
@@ -85,28 +95,61 @@ namespace NotifyRelayGamebar
                 // then we won't get the Window.Closed event.  However, we will get the OnSuspending
                 // call and can use that for cleanup.
                 //
-                if (widgetArgs.IsLaunchActivation)
+                Frame rootFrame = Window.Current.Content as Frame;
+                if (rootFrame == null)
                 {
-                    var rootFrame = new Frame();
+                    rootFrame = new Frame();
                     rootFrame.NavigationFailed += OnNavigationFailed;
                     Window.Current.Content = rootFrame;
+                }
 
-                    // Create Game Bar widget object which bootstraps the connection with Game Bar
-                    playerWidget = new XboxGameBarWidget(
-                        widgetArgs,
-                        Window.Current.CoreWindow,
-                        rootFrame);
-                    // 将playerWidget对象作为参数传递给NotifyRelayWidget页面
-                    rootFrame.Navigate(typeof(NotifyRelayWidget), playerWidget);
+                if (widgetArgs.AppExtensionId == "Widget1")
+                {
+                    if (widgetArgs.IsLaunchActivation || playerWidget == null)
+                    {
+                        // Create Game Bar widget object which bootstraps the connection with Game Bar
+                        playerWidget = new XboxGameBarWidget(
+                            widgetArgs,
+                            Window.Current.CoreWindow,
+                            rootFrame);
+                        Window.Current.Closed += WidgetWindow_Closed;
+                    }
 
-                    Window.Current.Closed += WidgetWindow_Closed;
+                    if (rootFrame.Content == null || rootFrame.Content.GetType() != typeof(NotifyRelayWidget))
+                    {
+                        // 将playerWidget对象作为参数传递给NotifyRelayWidget页面
+                        rootFrame.Navigate(typeof(NotifyRelayWidget), playerWidget);
+                    }
+
+                    Window.Current.Activate();
+                }
+                else if (widgetArgs.AppExtensionId == "Widget1Settings")
+                {
+                    if (widgetArgs.IsLaunchActivation || settingsWidget == null)
+                    {
+                        settingsWidget = new XboxGameBarWidget(
+                            widgetArgs,
+                            Window.Current.CoreWindow,
+                            rootFrame);
+                        Window.Current.Closed += SettingsWindow_Closed;
+                    }
+
+                    if (rootFrame.Content == null || rootFrame.Content.GetType() != typeof(WidgetSettings))
+                    {
+                        rootFrame.Navigate(typeof(WidgetSettings), settingsWidget);
+                    }
 
                     Window.Current.Activate();
                 }
                 else
                 {
-                    // You can perform whatever behavior you need based on the URI payload.
+                    Timber.Log(LoggerLevel.Warn, "Unknown AppExtensionId: {0}", widgetArgs.AppExtensionId ?? "<null>");
+                    return;
                 }
+            }
+            else
+            {
+                Timber.Log(LoggerLevel.Warn, "OnActivated: widgetArgs is null");
             }
         }
 
@@ -114,6 +157,12 @@ namespace NotifyRelayGamebar
         {
             playerWidget = null;
             Window.Current.Closed -= WidgetWindow_Closed;
+        }
+
+        private void SettingsWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
+        {
+            settingsWidget = null;
+            Window.Current.Closed -= SettingsWindow_Closed;
         }
 
         /// <summary>
@@ -183,6 +232,7 @@ namespace NotifyRelayGamebar
             var deferral = e.SuspendingOperation.GetDeferral();
 
             playerWidget = null;
+            settingsWidget = null;
 
             deferral.Complete();
         }

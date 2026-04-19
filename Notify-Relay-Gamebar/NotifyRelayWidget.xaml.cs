@@ -158,6 +158,7 @@ namespace NotifyRelayGamebar
             }
         }
 
+
         private void TitleMarqueeHost_Loaded(object sender, RoutedEventArgs e)
         {
             RefreshMarqueeHost(sender as FrameworkElement);
@@ -410,6 +411,8 @@ namespace NotifyRelayGamebar
                 // 订阅固定状态变化事件
                 Timber.Log(LoggerLevel.Info, "Subscribing to PinnedChanged event");
                 widget.PinnedChanged += Widget_PinnedChanged;
+                // 订阅设置按钮点击事件
+                widget.SettingsClicked += Widget_SettingsClicked;
                 // 订阅主题变化事件
                 widget.RequestedThemeChanged += Widget_RequestedThemeChanged;
                 // 订阅GameBar显示模式变化事件
@@ -482,6 +485,7 @@ namespace NotifyRelayGamebar
             if (widget != null)
             {
                 widget.PinnedChanged -= Widget_PinnedChanged;
+                widget.SettingsClicked -= Widget_SettingsClicked;
                 widget.RequestedThemeChanged -= Widget_RequestedThemeChanged;
                 widget.GameBarDisplayModeChanged -= Widget_GameBarDisplayModeChanged;
             }
@@ -509,6 +513,14 @@ namespace NotifyRelayGamebar
                 _mediaPlaybackManager.UpdateMediaVisibility();
                 _exampleNotificationManager.UpdateExampleNotifications();
             });
+        }
+
+        /// <summary>
+        /// 处理设置按钮点击事件
+        /// </summary>
+        private async void Widget_SettingsClicked(XboxGameBarWidget sender, object args)
+        {
+            await widget.ActivateSettingsAsync();
         }
 
         /// <summary>
