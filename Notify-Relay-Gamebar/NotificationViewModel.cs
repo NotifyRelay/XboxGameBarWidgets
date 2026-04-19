@@ -236,13 +236,14 @@ namespace NotifyRelayGamebar
                         vertical.HorizontalAlignment = HorizontalAlignment.Stretch;
 
                         TextBlock sourceLine = new TextBlock();
-                        if (!string.IsNullOrEmpty(notification.AppName))
+                        var appName = string.IsNullOrWhiteSpace(notification.AppName) ? "未知应用" : notification.AppName;
+                        if (!string.IsNullOrWhiteSpace(notification.DeviceName))
                         {
-                            sourceLine.Text = "来自 " + notification.AppName;
+                            sourceLine.Text = "来自" + notification.DeviceName + "的" + appName;
                         }
                         else
                         {
-                            sourceLine.Text = "来自 未知应用";
+                            sourceLine.Text = "来自" + appName;
                         }
                         sourceLine.FontSize = 12;
                         sourceLine.Foreground = new SolidColorBrush(Windows.UI.Colors.Gray);

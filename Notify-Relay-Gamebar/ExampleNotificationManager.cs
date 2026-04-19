@@ -137,7 +137,7 @@ namespace NotifyRelayGamebar
         /// <summary>
         /// 创建示例通知
         /// </summary>
-        private StackPanel CreateExampleNotification(string title, string content, string appName)
+        private StackPanel CreateExampleNotification(string title, string content, string appName, string deviceName = null)
         {
             var notificationExample = new StackPanel()
             {
@@ -183,9 +183,12 @@ namespace NotifyRelayGamebar
             };
 
             // 来源行
+            var sourceText = string.IsNullOrWhiteSpace(deviceName)
+                ? "来自" + appName
+                : "来自" + deviceName + "的" + appName;
             var sourceLine = new TextBlock()
             {
-                Text = "来自 " + appName,
+                Text = sourceText,
                 FontSize = 12,
                 Foreground = new SolidColorBrush(Windows.UI.Colors.Gray),
                 TextWrapping = TextWrapping.NoWrap
@@ -298,8 +301,8 @@ namespace NotifyRelayGamebar
                 bool shouldShowNotifications = isGameBarOpen;
                 if (shouldShowNotifications)
                 {
-                    _notificationExample1 = CreateExampleNotification("通知示例1", "这是第一条示例通知，用于展示通知的外观和样式。", "示例应用");
-                    _notificationExample2 = CreateExampleNotification("通知示例2", "这是第二条示例通知，演示了多行文本的显示效果。", "示例应用");
+                    _notificationExample1 = CreateExampleNotification("通知示例1", "这是第一条示例通知，用于展示通知的外观和样式。", "示例应用", "示例设备");
+                    _notificationExample2 = CreateExampleNotification("通知示例2", "这是第二条示例通知，演示了多行文本的显示效果。", "示例应用", "示例设备");
                     
                     _toastStack.Children.Add(_notificationExample1);
                     _toastStack.Children.Add(_notificationExample2);

@@ -6,6 +6,7 @@ namespace NotifyRelayGamebar.Models
     public class NotificationModel
     {
         public string AppName { get; set; }
+        public string DeviceName { get; set; }
         public string Title { get; set; }
         public string Body { get; set; }
         public Uri IconUri { get; set; }

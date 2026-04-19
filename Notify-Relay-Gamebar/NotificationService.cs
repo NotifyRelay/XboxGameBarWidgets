@@ -211,12 +211,16 @@ namespace NotifyRelayGamebar
                 string appName = json.TryGetValue("appName", out var appNameValue) ? appNameValue.GetString() : string.Empty;
                 string title = json.TryGetValue("title", out var titleValue) ? titleValue.GetString() : string.Empty;
                 string body = json.TryGetValue("body", out var bodyValue) ? bodyValue.GetString() : string.Empty;
+                string deviceName = json.TryGetValue("deviceName", out var deviceNameValue) && deviceNameValue.ValueType == JsonValueType.String
+                    ? deviceNameValue.GetString()
+                    : string.Empty;
                 string iconUrl = json.TryGetValue("iconUrl", out var iconUrlValue) && iconUrlValue.ValueType != JsonValueType.Null ? iconUrlValue.GetString() : string.Empty;
 
                 // 创建NotificationModel对象
                 var notification = new NotificationModel
                 {
                     AppName = appName,
+                    DeviceName = deviceName,
                     Title = title,
                     Body = body,
                     ReceivedTime = DateTime.Now,
