@@ -82,14 +82,14 @@
 
     <Grid>
         <!-- 背景Grid，设置透明背景避免显示方形淡色背景 -->
-        <Grid x:Name="BackgroundGrid" Background="Transparent" />
+        <Grid x:Name="BackgroundGrid" Background="{x:Null}" IsHitTestVisible="False" />
 
         <!-- 通知显示区域 -->
-        <ScrollViewer x:Name="RootScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible" Background="Transparent">
-            <ContentControl x:Name="RootContentControl" HorizontalContentAlignment="Stretch" Background="Transparent">
-                <StackPanel x:Name="RootStackPanel" Orientation="Vertical" Background="Transparent">
+        <ScrollViewer x:Name="RootScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible" Background="{x:Null}">
+            <ContentControl x:Name="RootContentControl" HorizontalContentAlignment="Stretch" Background="{x:Null}">
+                <StackPanel x:Name="RootStackPanel" Orientation="Vertical" Background="{x:Null}">
                     <!-- 改为 Stretch，使子通知可以横向填满小部件限制宽度 -->
-                    <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10,0,10,10" Orientation="Vertical" Background="Transparent">
+                    <StackPanel x:Name="ToastStack" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="10,0,10,10" Orientation="Vertical" Background="{x:Null}">
                         <!-- 媒体控制区域作为通知块，仅在有媒体会话时显示 -->
                         <!-- 使用 ItemsControl 显示多个媒体块 -->
                         <ItemsControl
@@ -97,7 +97,7 @@
                             d:Visibility="Visible"
                             Margin="6,8,6,8"
                             ItemsSource="{x:Bind PlayerViewModel.MediaSessions, Mode=OneWay}"
-                            Background="Transparent">
+                            Background="{x:Null}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:MediaSessionViewModel">
                                     <!-- WinIsland 风格的媒体项，支持点击展开/收起 -->
@@ -321,7 +321,7 @@
                             Margin="6,8,6,8"
                             ItemsSource="{x:Bind NotificationViewModel.SuperIslands, Mode=OneWay}"
                             Visibility="{x:Bind NotificationViewModel.HasSuperIslands, Mode=OneWay, Converter={StaticResource boolToVisibilityConverter}}"
-                            Background="Transparent">
+                            Background="{x:Null}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:SuperIslandViewModel">
                                     <Border

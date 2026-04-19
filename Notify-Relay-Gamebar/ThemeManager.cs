@@ -123,13 +123,13 @@ namespace NotifyRelayGamebar
                         // 在固定且关闭时，保持PlayerWidgetView背景透明，不设置背景
                         if (_playerWidgetView != null && _playerWidgetView is Panel pinnedPlayerPanel)
                         {
-                            pinnedPlayerPanel.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                            pinnedPlayerPanel.Background = null;
                         }
 
                         // ToastStack 始终保持透明，不设置背景
                         if (_toastStack != null)
                         {
-                            _toastStack.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                            _toastStack.Background = null;
                         }
 
                         return;
@@ -151,13 +151,13 @@ namespace NotifyRelayGamebar
             // 未固定时，保持PlayerWidgetView背景透明，不设置背景
             if (_playerWidgetView != null && _playerWidgetView is Panel playerPanel)
             {
-                playerPanel.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                playerPanel.Background = null;
             }
 
             // ToastStack 始终保持透明，不恢复背景
             if (_toastStack != null)
             {
-                _toastStack.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+                _toastStack.Background = null;
             }
         }
 
@@ -178,7 +178,7 @@ namespace NotifyRelayGamebar
             }
             
             // 保持BackgroundGrid透明，避免显示方形背景
-            _backgroundGrid.Background = new SolidColorBrush(Windows.UI.Colors.Transparent);
+            _backgroundGrid.Background = null;
         }
 
         /// <summary>

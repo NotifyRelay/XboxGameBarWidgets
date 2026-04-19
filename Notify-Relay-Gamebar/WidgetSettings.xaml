@@ -5,9 +5,10 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:NotifyRelayGamebar.Models"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    Background="{x:Null}">
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid Background="{x:Null}">
         <StackPanel Margin="16" Width="280">
             <TextBlock Text="设置" FontSize="18" FontWeight="Bold" Margin="0,0,0,12" />
 

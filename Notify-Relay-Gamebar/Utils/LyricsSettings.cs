@@ -28,7 +28,7 @@ namespace NotifyRelayGamebar.Utils
 
         public static int LyricsDelayMs
         {
-            get => ReadInt(KeyDelayMs, 0);
+            get => ReadInt(KeyDelayMs, -100);
             set
             {
                 if (value == LyricsDelayMs)
