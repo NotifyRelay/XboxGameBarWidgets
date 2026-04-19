@@ -155,6 +155,7 @@
     <Compile Include="ExampleNotificationManager.cs" />
     <Compile Include="NotificationManager.cs" />
     <Compile Include="MediaPlaybackManager.cs" />
+    <Compile Include="Utils\LyricsService.cs" />
     <Compile Include="Utils\AppCenterLoggingTree.cs" />
     <Compile Include="Utils\FileLoggingTree.cs" />
   </ItemGroup>

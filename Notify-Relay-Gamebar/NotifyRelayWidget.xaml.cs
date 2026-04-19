@@ -31,6 +31,21 @@ namespace NotifyRelayGamebar
             }
         }
 
+        private sealed class MarqueeBindingToken
+        {
+            public Models.MediaSessionViewModel ViewModel { get; }
+            public long Token { get; }
+            public Storyboard Storyboard { get; set; }
+            public TextBlock TextBlock { get; }
+
+            public MarqueeBindingToken(Models.MediaSessionViewModel viewModel, long token, TextBlock textBlock)
+            {
+                ViewModel = viewModel;
+                Token = token;
+                TextBlock = textBlock;
+            }
+        }
+
         private XboxGameBarWidget widget;
         private PlayerViewModel PlayerViewModel { get; set; }
         private NotificationViewModel NotificationViewModel { get; set; }
@@ -40,6 +55,9 @@ namespace NotifyRelayGamebar
         private ExampleNotificationManager _exampleNotificationManager;
         private NotificationManager _notificationManager;
         private MediaPlaybackManager _mediaPlaybackManager;
+
+        private const double MarqueeSpeed = 30.0;
+        private const double MarqueeStartDelaySeconds = 0.8;
         
         // 记录展开状态的字典
         private Dictionary<string, bool> _expandedStates = new Dictionary<string, bool>();
@@ -138,6 +156,211 @@ namespace NotifyRelayGamebar
                     token.Token);
                 element.Tag = null;
             }
+        }
+
+        private void TitleMarqueeHost_Loaded(object sender, RoutedEventArgs e)
+        {
+            RefreshMarqueeHost(sender as FrameworkElement);
+        }
+
+        private void TitleMarqueeHost_Unloaded(object sender, RoutedEventArgs e)
+        {
+            UnregisterMarqueeCallback(sender as FrameworkElement);
+        }
+
+        private void TitleMarqueeHost_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            RefreshMarqueeHost(sender as FrameworkElement);
+        }
+
+        private void TitleMarqueeHost_DataContextChanged(FrameworkElement sender, DataContextChangedEventArgs args)
+        {
+            var host = sender as FrameworkElement;
+            UnregisterMarqueeCallback(host);
+
+            var textBlock = FindMarqueeTextBlock(host);
+            if (textBlock == null)
+            {
+                return;
+            }
+
+            if (host?.DataContext is Models.MediaSessionViewModel viewModel)
+            {
+                var token = viewModel.RegisterPropertyChangedCallback(
+                    Models.MediaSessionViewModel.TitleProperty,
+                    (d, p) =>
+                    {
+                        var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            ResetMarquee(host, textBlock);
+                        });
+                    });
+
+                host.Tag = new MarqueeBindingToken(viewModel, token, textBlock);
+            }
+
+            ResetMarquee(host, textBlock);
+        }
+
+        private void RefreshMarqueeHost(FrameworkElement host)
+        {
+            if (host == null)
+            {
+                return;
+            }
+
+            UpdateMarqueeClip(host);
+            var textBlock = FindMarqueeTextBlock(host);
+            if (textBlock != null)
+            {
+                ResetMarquee(host, textBlock);
+            }
+        }
+
+        private static TextBlock FindMarqueeTextBlock(FrameworkElement host)
+        {
+            if (host == null)
+            {
+                return null;
+            }
+
+            return host.FindName("TitleText") as TextBlock
+                ?? host.FindName("ExpandedTitle") as TextBlock;
+        }
+
+        private void ResetMarquee(FrameworkElement host, TextBlock textBlock)
+        {
+            if (host == null || textBlock == null)
+            {
+                return;
+            }
+
+            StopMarquee(host, textBlock);
+            UpdateMarquee(host, textBlock);
+        }
+
+        private void UpdateMarquee(FrameworkElement host, TextBlock textBlock)
+        {
+            if (host == null || textBlock == null)
+            {
+                return;
+            }
+
+            if (host.ActualWidth <= 0 || host.ActualHeight <= 0)
+            {
+                return;
+            }
+
+            textBlock.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+            var textWidth = textBlock.DesiredSize.Width;
+            var availableWidth = host.ActualWidth;
+            var overflow = textWidth - availableWidth;
+
+            var transform = textBlock.RenderTransform as TranslateTransform;
+            if (transform == null)
+            {
+                transform = new TranslateTransform();
+                textBlock.RenderTransform = transform;
+            }
+
+            transform.X = 0;
+
+            if (overflow <= 2)
+            {
+                return;
+            }
+
+            var durationSeconds = Math.Max(overflow / MarqueeSpeed, 1.2);
+            var storyboard = new Storyboard();
+            var keyframes = new DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = RepeatBehavior.Forever,
+                EnableDependentAnimation = true
+            };
+
+            keyframes.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = TimeSpan.Zero,
+                Value = 0
+            });
+            keyframes.KeyFrames.Add(new DiscreteDoubleKeyFrame
+            {
+                KeyTime = TimeSpan.FromSeconds(MarqueeStartDelaySeconds),
+                Value = 0
+            });
+            keyframes.KeyFrames.Add(new LinearDoubleKeyFrame
+            {
+                KeyTime = TimeSpan.FromSeconds(MarqueeStartDelaySeconds + durationSeconds),
+                Value = -overflow
+            });
+
+            Storyboard.SetTarget(keyframes, transform);
+            Storyboard.SetTargetProperty(keyframes, "X");
+            storyboard.Children.Add(keyframes);
+            storyboard.Begin();
+
+            if (host.Tag is MarqueeBindingToken token)
+            {
+                token.Storyboard = storyboard;
+            }
+            else
+            {
+                host.Tag = new MarqueeBindingToken(null, 0, textBlock)
+                {
+                    Storyboard = storyboard
+                };
+            }
+        }
+
+        private void StopMarquee(FrameworkElement host, TextBlock textBlock)
+        {
+            if (host?.Tag is MarqueeBindingToken token && token.Storyboard != null)
+            {
+                token.Storyboard.Stop();
+                token.Storyboard = null;
+            }
+
+            var transform = textBlock?.RenderTransform as TranslateTransform;
+            if (transform != null)
+            {
+                transform.X = 0;
+            }
+        }
+
+        private void UnregisterMarqueeCallback(FrameworkElement host)
+        {
+            if (host?.Tag is MarqueeBindingToken token && token.ViewModel != null)
+            {
+                token.ViewModel.UnregisterPropertyChangedCallback(
+                    Models.MediaSessionViewModel.TitleProperty,
+                    token.Token);
+            }
+
+            if (host?.Tag is MarqueeBindingToken stopToken)
+            {
+                if (stopToken.Storyboard != null)
+                {
+                    stopToken.Storyboard.Stop();
+                }
+            }
+
+            if (host != null)
+            {
+                host.Tag = null;
+            }
+        }
+
+        private static void UpdateMarqueeClip(FrameworkElement host)
+        {
+            if (host == null || host.ActualWidth <= 0 || host.ActualHeight <= 0)
+            {
+                return;
+            }
+
+            host.Clip = new RectangleGeometry
+            {
+                Rect = new Windows.Foundation.Rect(0, 0, host.ActualWidth, host.ActualHeight)
+            };
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

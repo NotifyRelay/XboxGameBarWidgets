@@ -130,19 +130,28 @@
                                                         Stretch="Uniform" />
                                                     </Border>
                                                     
-                                                    <!-- 歌曲信息 - 支持滚动 -->
-                                                    <ScrollViewer 
+                                                    <!-- 歌曲信息 - 单行滚动显示 -->
+                                                    <Grid
+                                                        x:Name="TitleMarqueeHost"
                                                         Margin="8,0,8,0"
                                                         VerticalAlignment="Center"
-                                                        HorizontalScrollBarVisibility="Auto"
-                                                        VerticalScrollBarVisibility="Disabled">
+                                                        Loaded="TitleMarqueeHost_Loaded"
+                                                        Unloaded="TitleMarqueeHost_Unloaded"
+                                                        SizeChanged="TitleMarqueeHost_SizeChanged"
+                                                        DataContextChanged="TitleMarqueeHost_DataContextChanged">
                                                         <TextBlock 
                                                             x:Name="TitleText"
                                                             Text="{x:Bind Title, Mode=OneWay}" 
                                                             FontSize="12"
                                                             FontWeight="Normal"
-                                                            Foreground="White"/>
-                                                    </ScrollViewer>
+                                                            Foreground="White"
+                                                            TextWrapping="NoWrap"
+                                                            TextTrimming="None">
+                                                            <TextBlock.RenderTransform>
+                                                                <TranslateTransform />
+                                                            </TextBlock.RenderTransform>
+                                                        </TextBlock>
+                                                    </Grid>
                                                     
                                                     <!-- 播放状态指示器 -->
                                                     <Grid 
@@ -224,12 +233,24 @@
                                                         Margin="16,0,0,0"
                                                         VerticalAlignment="Top">
                                                         <!-- 歌曲标题 -->
-                                                        <TextBlock 
-                                                            x:Name="ExpandedTitle"
-                                                            Style="{StaticResource WinIslandTitleTextStyle}"
-                                                            Text="{x:Bind Title, Mode=OneWay}" 
-                                                            TextTrimming="CharacterEllipsis"
-                                                            Opacity="0"/>
+                                                        <Grid
+                                                            x:Name="ExpandedTitleMarqueeHost"
+                                                            Loaded="TitleMarqueeHost_Loaded"
+                                                            Unloaded="TitleMarqueeHost_Unloaded"
+                                                            SizeChanged="TitleMarqueeHost_SizeChanged"
+                                                            DataContextChanged="TitleMarqueeHost_DataContextChanged">
+                                                            <TextBlock 
+                                                                x:Name="ExpandedTitle"
+                                                                Style="{StaticResource WinIslandTitleTextStyle}"
+                                                                Text="{x:Bind Title, Mode=OneWay}" 
+                                                                TextWrapping="NoWrap"
+                                                                TextTrimming="None"
+                                                                Opacity="0">
+                                                                <TextBlock.RenderTransform>
+                                                                    <TranslateTransform />
+                                                                </TextBlock.RenderTransform>
+                                                            </TextBlock>
+                                                        </Grid>
                                                         
                                                         <!-- 艺术家 -->
                                                         <TextBlock 

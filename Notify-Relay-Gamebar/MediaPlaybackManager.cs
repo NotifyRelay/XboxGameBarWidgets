@@ -1,5 +1,6 @@
 using Microsoft.Gaming.XboxGameBar;
 using NotifyRelayGamebar.Models;
+using NotifyRelayGamebar.Utils;
 using NPSMLib;
 using System;
 using System.Collections.Generic;
@@ -42,6 +43,9 @@ namespace NotifyRelayGamebar
         private DispatcherTimer _pollTimer;
         private DateTime _lastManagerRefresh = DateTime.MinValue;
         private DateTime _lastFullSessionRefresh = DateTime.MinValue;
+        private const int LyricDelayMs = 0;
+        private readonly string _lyricsSource = LyricsService.DefaultSource;
+        private readonly bool _lyricsFallback = true;
 
         public MediaPlaybackManager(
             XboxGameBarWidget widget,
@@ -196,8 +200,14 @@ namespace NotifyRelayGamebar
                         {
                             // 更新现有会话的属性
                             existingSession.Title = remoteSession.Title;
+                            existingSession.OriginalTitle = remoteSession.Title ?? string.Empty;
                             existingSession.Artist = remoteSession.Artist;
                             existingSession.IsPlaying = remoteSession.IsPlaying || shouldPulse;
+                            existingSession.LyricLines = null;
+                            existingSession.CurrentLyricLine = string.Empty;
+                            existingSession.LyricsKey = string.Empty;
+                            existingSession.LyricsRequestId = 0;
+                            existingSession.DurationSeconds = 0;
 
                             // 只有当封面 URL 发生变化时才更新封面
                             if (!string.IsNullOrEmpty(remoteSession.CoverUrl))
@@ -220,12 +230,18 @@ namespace NotifyRelayGamebar
                             DeviceId = remoteSession.DeviceId,
                             DeviceName = remoteSession.DeviceName,
                             Title = remoteSession.Title,
+                            OriginalTitle = remoteSession.Title ?? string.Empty,
                             Artist = remoteSession.Artist,
                             IsPlaying = remoteSession.IsPlaying || shouldPulse,
                             IsPlayPauseEnabled = true,
                             IsPreviousEnabled = true,
                             IsNextEnabled = true,
-                            IsRemoteSession = true
+                            IsRemoteSession = true,
+                            LyricLines = null,
+                            CurrentLyricLine = string.Empty,
+                            LyricsKey = string.Empty,
+                            LyricsRequestId = 0,
+                            DurationSeconds = 0
                         };
 
                         // 更新封面
@@ -248,19 +264,49 @@ namespace NotifyRelayGamebar
                         var mediaSource = localSession.ActivateMediaPlaybackDataSource();
                         var mediaInfo = mediaSource.GetMediaObjectInfo();
                         var playbackInfo = mediaSource.GetMediaPlaybackInfo();
+
+                        string title = mediaInfo.Title ?? string.Empty;
+                        string artist = mediaInfo.Artist ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(mediaInfo.AlbumArtist))
+                        {
+                            artist = mediaInfo.AlbumArtist;
+                        }
+
+                        var durationSeconds = 0;
+                        var hasTimeline = TryGetTimelineFromSource(mediaSource, playbackInfo, out var position, out var duration);
+                        if (hasTimeline)
+                        {
+                            if (duration > TimeSpan.Zero)
+                            {
+                                durationSeconds = (int)Math.Round(duration.TotalSeconds);
+                            }
+                        }
                         
                         // 检查是否有有效信息（参考WinIsland逻辑）
-                        bool hasValidInfo = !string.IsNullOrWhiteSpace(mediaInfo.Title) || !string.IsNullOrWhiteSpace(mediaInfo.Artist);
+                        bool hasValidInfo = !string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(artist);
                         
                         if (existingSession != null)
                         {
                             if (hasValidInfo)
                             {
                                 // 更新现有会话的属性
-                                existingSession.Title = mediaInfo.Title;
-                                existingSession.Artist = mediaInfo.Artist;
+                                existingSession.OriginalTitle = title;
+                                existingSession.Artist = artist;
                                 existingSession.Album = mediaInfo.AlbumTitle;
+                                existingSession.DurationSeconds = durationSeconds;
                                 existingSession.IsPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State) ? playbackInfo.PlaybackState : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing;
+
+                                if (existingSession.LyricLines == null || existingSession.LyricLines.Count == 0)
+                                {
+                                    existingSession.Title = title;
+                                }
+
+                                EnsureLyricsForSessionAsync(existingSession, title, artist, durationSeconds);
+
+                                if (hasTimeline)
+                                {
+                                    UpdateLyricLineForSession(existingSession, position);
+                                }
                                 
                                 // 更新封面
                                 var thumbnailStream = mediaSource.GetThumbnailStream();
@@ -284,15 +330,24 @@ namespace NotifyRelayGamebar
                             {
                                 SessionId = localSession.SourceAppId,
                                 DeviceId = localSession.SourceAppId,
-                                Title = mediaInfo.Title,
-                                Artist = mediaInfo.Artist,
+                                Title = title,
+                                OriginalTitle = title,
+                                Artist = artist,
                                 Album = mediaInfo.AlbumTitle,
                                 IsPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State) ? playbackInfo.PlaybackState : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing,
                                 IsPlayPauseEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.PlayPauseToggle),
                                 IsPreviousEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Previous),
                                 IsNextEnabled = playerCapabilities.HasFlag(MediaPlaybackCapabilities.Next),
-                                IsRemoteSession = false
+                                IsRemoteSession = false,
+                                DurationSeconds = durationSeconds
                             };
+
+                            EnsureLyricsForSessionAsync(sessionViewModel, title, artist, durationSeconds);
+
+                            if (hasTimeline)
+                            {
+                                UpdateLyricLineForSession(sessionViewModel, position);
+                            }
 
                             // 更新封面
                             var thumbnailStream = mediaSource.GetThumbnailStream();
@@ -658,6 +713,19 @@ namespace NotifyRelayGamebar
                 var playbackInfo = freshSource.GetMediaPlaybackInfo();
                 var mediaInfo = freshSource.GetMediaObjectInfo();
 
+                var currentVm = _playerViewModel.MediaSessions
+                    .FirstOrDefault(s => !s.IsRemoteSession && s.SessionId == managerCurrent.SourceAppId);
+
+                if (currentVm != null && TryGetTimelineFromSource(freshSource, playbackInfo, out var position, out var duration))
+                {
+                    if (duration > TimeSpan.Zero)
+                    {
+                        currentVm.DurationSeconds = (int)Math.Round(duration.TotalSeconds);
+                    }
+
+                    UpdateLyricLineForSession(currentVm, position);
+                }
+
                 bool isPlaying = (playbackInfo.PropsValid.HasFlag(MediaPlaybackProps.State)
                     ? playbackInfo.PlaybackState
                     : MediaPlaybackState.Unknown) == MediaPlaybackState.Playing;
@@ -746,12 +814,35 @@ namespace NotifyRelayGamebar
 
                         string title = mediaInfo.Title ?? "";
                         string artist = mediaInfo.Artist ?? "";
-
-                        if (existingVm.Title != title || existingVm.Artist != artist)
+                        if (string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(mediaInfo.AlbumArtist))
                         {
-                            existingVm.Title = title;
+                            artist = mediaInfo.AlbumArtist;
+                        }
+
+                        if (TryGetTimelineFromSource(freshSource, playbackInfo, out var position, out var duration))
+                        {
+                            if (duration > TimeSpan.Zero)
+                            {
+                                existingVm.DurationSeconds = (int)Math.Round(duration.TotalSeconds);
+                            }
+
+                            if (existingVm.LyricLines != null && existingVm.LyricLines.Count > 0)
+                            {
+                                UpdateLyricLineForSession(existingVm, position);
+                            }
+                        }
+
+                        if (existingVm.OriginalTitle != title || existingVm.Artist != artist)
+                        {
+                            existingVm.OriginalTitle = title;
+                            if (existingVm.LyricLines == null || existingVm.LyricLines.Count == 0)
+                            {
+                                existingVm.Title = title;
+                            }
                             existingVm.Artist = artist;
                             existingVm.Album = mediaInfo.AlbumTitle ?? "";
+
+                            EnsureLyricsForSessionAsync(existingVm, title, artist, existingVm.DurationSeconds);
 
                             var thumbnailStream = freshSource.GetThumbnailStream();
                             if (thumbnailStream != null)
@@ -783,6 +874,207 @@ namespace NotifyRelayGamebar
             {
                 Timber.Log(LoggerLevel.Error, ex, "Error refreshing session manager");
             }
+        }
+
+        private void EnsureLyricsForSessionAsync(MediaSessionViewModel session, string title, string artist, int durationSeconds)
+        {
+            if (session == null || session.IsRemoteSession)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                session.OriginalTitle = title ?? string.Empty;
+                session.Title = session.OriginalTitle;
+                session.LyricLines = null;
+                session.CurrentLyricLine = string.Empty;
+                session.LyricsKey = string.Empty;
+                session.LyricsRequestId = 0;
+                return;
+            }
+
+            var key = LyricsService.BuildCacheKey(title, artist, durationSeconds);
+            if (string.Equals(session.LyricsKey, key, StringComparison.Ordinal) && (session.LyricLines != null || session.LyricsRequestId > 0))
+            {
+                return;
+            }
+
+            session.OriginalTitle = title ?? string.Empty;
+            session.LyricsKey = key;
+            session.LyricLines = null;
+            session.CurrentLyricLine = string.Empty;
+            session.Title = session.OriginalTitle;
+
+            var requestId = ++session.LyricsRequestId;
+            _ = FetchLyricsForSessionAsync(session, title, artist, durationSeconds, key, requestId);
+        }
+
+        private async Task FetchLyricsForSessionAsync(MediaSessionViewModel session, string title, string artist, int durationSeconds, string key, int requestId)
+        {
+            var lines = await LyricsService.FetchLyricsAsync(title, artist, durationSeconds, _lyricsSource, _lyricsFallback).ConfigureAwait(false);
+            await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                if (session == null || session.LyricsRequestId != requestId || !string.Equals(session.LyricsKey, key, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                session.LyricLines = lines ?? Array.Empty<LyricLine>();
+                if (session.LyricLines.Count == 0)
+                {
+                    session.CurrentLyricLine = string.Empty;
+                    session.Title = session.OriginalTitle;
+                }
+            });
+        }
+
+        private void UpdateLyricLineForSession(MediaSessionViewModel session, TimeSpan position)
+        {
+            if (session == null || session.IsRemoteSession)
+            {
+                return;
+            }
+
+            if (session.LyricLines == null || session.LyricLines.Count == 0)
+            {
+                session.CurrentLyricLine = string.Empty;
+                session.Title = session.OriginalTitle;
+                return;
+            }
+
+            var line = LyricsService.GetCurrentLine(session.LyricLines, (long)position.TotalMilliseconds, LyricDelayMs);
+            if (line == null)
+            {
+                session.CurrentLyricLine = string.Empty;
+                session.Title = session.OriginalTitle;
+                return;
+            }
+
+            session.CurrentLyricLine = line;
+            session.Title = line;
+        }
+
+        private static bool TryGetTimelineFromSource(MediaPlaybackDataSource source, MediaPlaybackInfo playbackInfo, out TimeSpan position, out TimeSpan duration)
+        {
+            position = TimeSpan.Zero;
+            duration = TimeSpan.Zero;
+
+            if (source != null)
+            {
+                var sourceType = source.GetType();
+                var method = sourceType.GetMethod("GetMediaTimelineProperties") ?? sourceType.GetMethod("GetTimelineProperties");
+                if (method != null && method.GetParameters().Length == 0)
+                {
+                    var timeline = method.Invoke(source, null);
+                    if (timeline != null && TryReadTimelineValues(timeline, out position, out duration))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            if (TryReadTimelineValues(playbackInfo, out position, out duration))
+            {
+                return true;
+            }
+
+            return position > TimeSpan.Zero || duration > TimeSpan.Zero;
+        }
+
+        private static bool TryReadTimelineValues(object timelineObject, out TimeSpan position, out TimeSpan duration)
+        {
+            position = TimeSpan.Zero;
+            duration = TimeSpan.Zero;
+
+            if (timelineObject == null)
+            {
+                return false;
+            }
+
+            var type = timelineObject.GetType();
+            var hasPosition = TryGetTimeSpanValue(type, timelineObject, new[] { "PlaybackPosition", "Position", "CurrentPosition", "PlaybackPositionMs", "PositionMs", "PlaybackPositionTicks", "PositionTicks" }, out position);
+            var hasDuration = TryGetTimeSpanValue(type, timelineObject, new[] { "PlaybackDuration", "Duration", "EndTime", "PlaybackLength", "TotalDuration", "PlaybackDurationMs", "DurationMs", "PlaybackDurationTicks", "DurationTicks" }, out duration);
+            return hasPosition || hasDuration;
+        }
+
+        private static bool TryGetTimeSpanValue(Type type, object instance, string[] names, out TimeSpan value)
+        {
+            foreach (var name in names)
+            {
+                var prop = type.GetProperty(name);
+                if (prop == null)
+                {
+                    continue;
+                }
+
+                var raw = prop.GetValue(instance);
+                if (TryConvertToTimeSpan(raw, out value))
+                {
+                    return true;
+                }
+            }
+
+            value = TimeSpan.Zero;
+            return false;
+        }
+
+        private static bool TryConvertToTimeSpan(object raw, out TimeSpan value)
+        {
+            if (raw == null)
+            {
+                value = TimeSpan.Zero;
+                return false;
+            }
+
+            if (raw is TimeSpan timeSpan)
+            {
+                value = timeSpan;
+                return true;
+            }
+
+            if (raw is long longValue)
+            {
+                value = ConvertNumberToTimeSpan(longValue);
+                return true;
+            }
+
+            if (raw is int intValue)
+            {
+                value = ConvertNumberToTimeSpan(intValue);
+                return true;
+            }
+
+            if (raw is double doubleValue)
+            {
+                value = ConvertNumberToTimeSpan(doubleValue);
+                return true;
+            }
+
+            if (raw is ulong ulongValue)
+            {
+                value = ConvertNumberToTimeSpan(ulongValue);
+                return true;
+            }
+
+            value = TimeSpan.Zero;
+            return false;
+        }
+
+        private static TimeSpan ConvertNumberToTimeSpan(double value)
+        {
+            if (value <= 0)
+            {
+                return TimeSpan.Zero;
+            }
+
+            if (value > TimeSpan.FromDays(1).TotalMilliseconds)
+            {
+                var ticks = (long)Math.Round(value);
+                return TimeSpan.FromTicks(ticks);
+            }
+
+            return TimeSpan.FromMilliseconds(value);
         }
 
         // 媒体控制按钮事件处理

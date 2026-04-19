@@ -1,4 +1,6 @@
 using NPSMLib;
+using System.Collections.Generic;
+using NotifyRelayGamebar.Utils;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -46,6 +48,18 @@ namespace NotifyRelayGamebar.Models
 
         public static readonly DependencyProperty TitleProperty =
             DependencyProperty.Register("Title", typeof(string), typeof(MediaSessionViewModel), new PropertyMetadata(string.Empty));
+
+        public string OriginalTitle { get; set; } = string.Empty;
+
+        public IReadOnlyList<LyricLine> LyricLines { get; set; }
+
+        public string CurrentLyricLine { get; set; } = string.Empty;
+
+        public string LyricsKey { get; set; } = string.Empty;
+
+        public int LyricsRequestId { get; set; }
+
+        public int DurationSeconds { get; set; }
 
         public string Artist
         {
@@ -229,6 +243,7 @@ namespace NotifyRelayGamebar.Models
             {
                 DeviceId = session.DeviceId;
                 Title = session.Title;
+                OriginalTitle = session.Title ?? string.Empty;
                 Artist = session.Artist;
                 Album = "";
                 IsPlaying = session.IsPlaying;
@@ -240,6 +255,11 @@ namespace NotifyRelayGamebar.Models
                 IsShuffleActive = false;
                 AutoRepeatMode = MediaPlaybackRepeatMode.None;
                 IsRemoteSession = true;
+                LyricLines = null;
+                CurrentLyricLine = string.Empty;
+                LyricsKey = string.Empty;
+                LyricsRequestId = 0;
+                DurationSeconds = 0;
             }
         }
     }
