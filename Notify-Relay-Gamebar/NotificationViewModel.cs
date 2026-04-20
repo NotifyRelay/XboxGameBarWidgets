@@ -79,17 +79,46 @@ namespace NotifyRelayGamebar
 
         private StackPanel _toastStack;
         private Windows.UI.Core.CoreDispatcher _uiDispatcher;
+        private StackPanel _expandedToastContainer;
+        private Grid _minimizedIconContainer;
+        private readonly List<InternalToastEntry> _internalToasts = new List<InternalToastEntry>();
+        private bool _notificationHostInitialized;
+
+        private const int ExpandedToastDurationMs = 4000;
+        private const int MinimizedIconDurationMs = 30000;
+        private const double MinimizedIconSlotWidth = 26;
+        private const double MinimizedIconSlotHeight = 26;
+
+        private sealed class InternalToastEntry
+        {
+            public Grid Card { get; set; }
+            public Button IconButton { get; set; }
+            public Image IconImage { get; set; }
+            public bool IsExpanded { get; set; }
+            public bool IsRemoved { get; set; }
+            public int ExpandedLifetimeToken { get; set; }
+            public int IconLifetimeToken { get; set; }
+        }
     
         public StackPanel ToastStack
         {
             set 
             {
+                if (_toastStack != null)
+                {
+                    _toastStack.SizeChanged -= ToastStack_SizeChanged;
+                }
+
                 _toastStack = value;
+                _notificationHostInitialized = false;
+                _expandedToastContainer = null;
+                _minimizedIconContainer = null;
                 // 获取并保存UI线程的调度器
                 if (value != null)
                 {
                     _uiDispatcher = value.Dispatcher;
                     Timber.Log(LoggerLevel.Info, "ToastStack set, Dispatcher: {0}", _uiDispatcher != null ? "NotNull" : "Null");
+                    EnsureNotificationHost();
                 }
                 else
                 {
@@ -192,6 +221,8 @@ namespace NotifyRelayGamebar
                 {
                     try
                     {
+                        EnsureNotificationHost();
+
                         // 创建通知UI元素
                         // 创建带阴影的容器，使用Grid和多层边框实现
                         Grid shadowGrid = new Grid();
@@ -344,72 +375,36 @@ namespace NotifyRelayGamebar
                         innerBorder.Child = vertical;
                         container.Child = innerBorder;
 
+                        var iconButton = CreateMinimizedIconButton(out var iconImage);
+                        var toastEntry = new InternalToastEntry
+                        {
+                            Card = shadowGrid,
+                            IconButton = iconButton,
+                            IconImage = iconImage,
+                            IsExpanded = true
+                        };
+
+                        shadowGrid.Tapped += (sender, args) =>
+                        {
+                            CollapseToastToIcon(toastEntry);
+                        };
+
+                        iconButton.Click += (sender, args) =>
+                        {
+                            ExpandToastFromIcon(toastEntry);
+                        };
+
+                        _internalToasts.Add(toastEntry);
+                        _expandedToastContainer.Children.Insert(0, shadowGrid);
+
                         // 准备“气泡弹出”入场动画：先小后大并轻微上浮，同时淡入
-                        var entranceTransform = new CompositeTransform
-                        {
-                            ScaleX = 0.78,
-                            ScaleY = 0.78,
-                            TranslateY = 12
-                        };
-                        shadowGrid.RenderTransform = entranceTransform;
-                        shadowGrid.RenderTransformOrigin = new Point(0.5, 0.5);
-                        shadowGrid.Opacity = 0;
-
-                        // append to ToastStack (later notifications appear below)
-                        _toastStack.Children.Add(shadowGrid);
-
-                        var popupStoryboard = new Storyboard();
-
-                        var fadeInAnimation = new DoubleAnimation
-                        {
-                            From = 0,
-                            To = 1,
-                            Duration = TimeSpan.FromMilliseconds(210),
-                            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-                        };
-                        Storyboard.SetTarget(fadeInAnimation, shadowGrid);
-                        Storyboard.SetTargetProperty(fadeInAnimation, "Opacity");
-
-                        var scaleXAnimation = new DoubleAnimation
-                        {
-                            From = 0.78,
-                            To = 1,
-                            Duration = TimeSpan.FromMilliseconds(260),
-                            EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut }
-                        };
-                        Storyboard.SetTarget(scaleXAnimation, shadowGrid);
-                        Storyboard.SetTargetProperty(scaleXAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleX)");
-
-                        var scaleYAnimation = new DoubleAnimation
-                        {
-                            From = 0.78,
-                            To = 1,
-                            Duration = TimeSpan.FromMilliseconds(260),
-                            EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut }
-                        };
-                        Storyboard.SetTarget(scaleYAnimation, shadowGrid);
-                        Storyboard.SetTargetProperty(scaleYAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleY)");
-
-                        var translateYAnimation = new DoubleAnimation
-                        {
-                            From = 12,
-                            To = 0,
-                            Duration = TimeSpan.FromMilliseconds(260),
-                            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-                        };
-                        Storyboard.SetTarget(translateYAnimation, shadowGrid);
-                        Storyboard.SetTargetProperty(translateYAnimation, "(UIElement.RenderTransform).(CompositeTransform.TranslateY)");
-
-                        popupStoryboard.Children.Add(fadeInAnimation);
-                        popupStoryboard.Children.Add(scaleXAnimation);
-                        popupStoryboard.Children.Add(scaleYAnimation);
-                        popupStoryboard.Children.Add(translateYAnimation);
-                        popupStoryboard.Begin();
+                        StartBubblePopAnimation(shadowGrid);
 
                         // 在UI线程上触发图标加载（LoadIconImageAsync 内部会再次使用 _uiDispatcher）
                         if (!string.IsNullOrEmpty(notification.IconUrl))
                         {
                             LoadIconImageAsync(img, notification.IconUrl);
+                            LoadIconImageAsync(iconImage, notification.IconUrl);
                         }
 
                         // 播放通知声音（非 UI 操作，可以在这里调用）
@@ -422,26 +417,7 @@ namespace NotifyRelayGamebar
                             Timber.Log(LoggerLevel.Error, ex, "Failed to play notification sound");
                         }
 
-                        // 启动自动隐藏计时（计时后通过 dispatcher 移除）
-                        var currentDispatcher = _uiDispatcher;
-                        var currentToastStack = _toastStack;
-                        var currentShadowGrid = shadowGrid;
-
-                        Task.Run(async () =>
-                        {
-                            await Task.Delay(4000);
-                            await currentDispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                            {
-                                try
-                                {
-                                    currentToastStack.Children.Remove(currentShadowGrid);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Timber.Log(LoggerLevel.Error, ex, "Error removing internal toast");
-                                }
-                            });
-                        });
+                        ScheduleAutoCollapse(toastEntry);
                     }
                     catch (Exception ex)
                     {
@@ -453,6 +429,352 @@ namespace NotifyRelayGamebar
             {
                 Timber.Log(LoggerLevel.Error, ex, "Error creating internal toast UI");
             }
+        }
+
+        private void EnsureNotificationHost()
+        {
+            if (_notificationHostInitialized || _toastStack == null)
+            {
+                return;
+            }
+
+            _expandedToastContainer = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+
+            _minimizedIconContainer = new Grid
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Margin = new Thickness(6, 0, 6, 8),
+                Visibility = Visibility.Collapsed
+            };
+
+            _toastStack.Children.Add(_expandedToastContainer);
+            _toastStack.Children.Add(_minimizedIconContainer);
+            _toastStack.SizeChanged += ToastStack_SizeChanged;
+
+            _notificationHostInitialized = true;
+            RelayoutMinimizedIcons();
+        }
+
+        private void ToastStack_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            RelayoutMinimizedIcons();
+        }
+
+        private Button CreateMinimizedIconButton(out Image iconImage)
+        {
+            iconImage = new Image
+            {
+                Width = 20,
+                Height = 20,
+                Stretch = Stretch.UniformToFill
+            };
+
+            var button = new Button
+            {
+                Width = 20,
+                Height = 20,
+                Padding = new Thickness(0),
+                Margin = new Thickness(1),
+                BorderThickness = new Thickness(0),
+                Background = new SolidColorBrush(Colors.Transparent),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top,
+                Content = iconImage
+            };
+
+            return button;
+        }
+
+        private void StartBubblePopAnimation(UIElement element)
+        {
+            if (element == null)
+            {
+                return;
+            }
+
+            element.Opacity = 0;
+            element.RenderTransformOrigin = new Point(0.5, 0.5);
+            element.RenderTransform = new CompositeTransform
+            {
+                ScaleX = 0.78,
+                ScaleY = 0.78,
+                TranslateY = 12
+            };
+
+            var popupStoryboard = new Storyboard();
+
+            var fadeInAnimation = new DoubleAnimation
+            {
+                From = 0,
+                To = 1,
+                Duration = TimeSpan.FromMilliseconds(210),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(fadeInAnimation, element);
+            Storyboard.SetTargetProperty(fadeInAnimation, "Opacity");
+
+            var scaleXAnimation = new DoubleAnimation
+            {
+                From = 0.78,
+                To = 1,
+                Duration = TimeSpan.FromMilliseconds(260),
+                EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(scaleXAnimation, element);
+            Storyboard.SetTargetProperty(scaleXAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleX)");
+
+            var scaleYAnimation = new DoubleAnimation
+            {
+                From = 0.78,
+                To = 1,
+                Duration = TimeSpan.FromMilliseconds(260),
+                EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(scaleYAnimation, element);
+            Storyboard.SetTargetProperty(scaleYAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleY)");
+
+            var translateYAnimation = new DoubleAnimation
+            {
+                From = 12,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(260),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+            Storyboard.SetTarget(translateYAnimation, element);
+            Storyboard.SetTargetProperty(translateYAnimation, "(UIElement.RenderTransform).(CompositeTransform.TranslateY)");
+
+            popupStoryboard.Children.Add(fadeInAnimation);
+            popupStoryboard.Children.Add(scaleXAnimation);
+            popupStoryboard.Children.Add(scaleYAnimation);
+            popupStoryboard.Children.Add(translateYAnimation);
+            popupStoryboard.Begin();
+        }
+
+        private void CollapseToastToIcon(InternalToastEntry toastEntry)
+        {
+            if (toastEntry == null || toastEntry.IsRemoved || !toastEntry.IsExpanded)
+            {
+                return;
+            }
+
+            toastEntry.IsExpanded = false;
+            toastEntry.ExpandedLifetimeToken++;
+
+            toastEntry.Card.IsHitTestVisible = false;
+            var shrinkStoryboard = new Storyboard();
+
+            var fadeAnimation = new DoubleAnimation
+            {
+                From = 1,
+                To = 0,
+                Duration = TimeSpan.FromMilliseconds(170),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+            };
+            Storyboard.SetTarget(fadeAnimation, toastEntry.Card);
+            Storyboard.SetTargetProperty(fadeAnimation, "Opacity");
+
+            var scaleXAnimation = new DoubleAnimation
+            {
+                From = 1,
+                To = 0.82,
+                Duration = TimeSpan.FromMilliseconds(170),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+            };
+            Storyboard.SetTarget(scaleXAnimation, toastEntry.Card);
+            Storyboard.SetTargetProperty(scaleXAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleX)");
+
+            var scaleYAnimation = new DoubleAnimation
+            {
+                From = 1,
+                To = 0.82,
+                Duration = TimeSpan.FromMilliseconds(170),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+            };
+            Storyboard.SetTarget(scaleYAnimation, toastEntry.Card);
+            Storyboard.SetTargetProperty(scaleYAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleY)");
+
+            shrinkStoryboard.Children.Add(fadeAnimation);
+            shrinkStoryboard.Children.Add(scaleXAnimation);
+            shrinkStoryboard.Children.Add(scaleYAnimation);
+
+            shrinkStoryboard.Completed += (sender, args) =>
+            {
+                if (toastEntry.IsRemoved)
+                {
+                    return;
+                }
+
+                if (_expandedToastContainer?.Children.Contains(toastEntry.Card) == true)
+                {
+                    _expandedToastContainer.Children.Remove(toastEntry.Card);
+                }
+
+                toastEntry.Card.IsHitTestVisible = true;
+                toastEntry.Card.Opacity = 1;
+                toastEntry.Card.RenderTransform = new CompositeTransform
+                {
+                    ScaleX = 1,
+                    ScaleY = 1,
+                    TranslateY = 0
+                };
+                toastEntry.Card.RenderTransformOrigin = new Point(0.5, 0.5);
+
+                RelayoutMinimizedIcons();
+                ScheduleMinimizedIconRemoval(toastEntry);
+            };
+
+            shrinkStoryboard.Begin();
+        }
+
+        private void ExpandToastFromIcon(InternalToastEntry toastEntry)
+        {
+            if (toastEntry == null || toastEntry.IsRemoved || toastEntry.IsExpanded)
+            {
+                return;
+            }
+
+            toastEntry.IsExpanded = true;
+            toastEntry.IconLifetimeToken++;
+
+            _expandedToastContainer?.Children.Insert(0, toastEntry.Card);
+            StartBubblePopAnimation(toastEntry.Card);
+            RelayoutMinimizedIcons();
+            ScheduleAutoCollapse(toastEntry);
+        }
+
+        private void RelayoutMinimizedIcons()
+        {
+            if (_minimizedIconContainer == null)
+            {
+                return;
+            }
+
+            _minimizedIconContainer.Children.Clear();
+            _minimizedIconContainer.RowDefinitions.Clear();
+            _minimizedIconContainer.ColumnDefinitions.Clear();
+
+            var minimizedEntries = _internalToasts.Where(entry => !entry.IsRemoved && !entry.IsExpanded).ToList();
+            if (minimizedEntries.Count == 0)
+            {
+                _minimizedIconContainer.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            var availableWidth = _minimizedIconContainer.ActualWidth;
+            if (availableWidth <= 0 && _toastStack != null)
+            {
+                availableWidth = Math.Max(0, _toastStack.ActualWidth - 20);
+            }
+
+            var columns = availableWidth > 0
+                ? Math.Max(1, (int)Math.Floor(availableWidth / MinimizedIconSlotWidth))
+                : 1;
+
+            for (var c = 0; c < columns; c++)
+            {
+                _minimizedIconContainer.ColumnDefinitions.Add(new ColumnDefinition
+                {
+                    Width = new GridLength(MinimizedIconSlotWidth, GridUnitType.Pixel)
+                });
+            }
+
+            var rows = (int)Math.Ceiling((double)minimizedEntries.Count / columns);
+            for (var r = 0; r < rows; r++)
+            {
+                _minimizedIconContainer.RowDefinitions.Add(new RowDefinition
+                {
+                    Height = new GridLength(MinimizedIconSlotHeight, GridUnitType.Pixel)
+                });
+            }
+
+            for (var i = 0; i < minimizedEntries.Count; i++)
+            {
+                var row = i / columns;
+                var col = i % columns;
+                var iconButton = minimizedEntries[i].IconButton;
+                iconButton.Opacity = 1;
+                Grid.SetRow(iconButton, row);
+                Grid.SetColumn(iconButton, col);
+                _minimizedIconContainer.Children.Add(iconButton);
+            }
+
+            _minimizedIconContainer.Visibility = Visibility.Visible;
+        }
+
+        private void ScheduleAutoCollapse(InternalToastEntry toastEntry)
+        {
+            if (toastEntry == null || toastEntry.IsRemoved)
+            {
+                return;
+            }
+
+            var token = ++toastEntry.ExpandedLifetimeToken;
+            Task.Run(async () =>
+            {
+                await Task.Delay(ExpandedToastDurationMs);
+                await _uiDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (toastEntry.IsRemoved || !toastEntry.IsExpanded || toastEntry.ExpandedLifetimeToken != token)
+                    {
+                        return;
+                    }
+
+                    CollapseToastToIcon(toastEntry);
+                });
+            });
+        }
+
+        private void ScheduleMinimizedIconRemoval(InternalToastEntry toastEntry)
+        {
+            if (toastEntry == null || toastEntry.IsRemoved)
+            {
+                return;
+            }
+
+            var token = ++toastEntry.IconLifetimeToken;
+            Task.Run(async () =>
+            {
+                await Task.Delay(MinimizedIconDurationMs);
+                await _uiDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (toastEntry.IsRemoved || toastEntry.IsExpanded || toastEntry.IconLifetimeToken != token)
+                    {
+                        return;
+                    }
+
+                    RemoveToastEntry(toastEntry);
+                });
+            });
+        }
+
+        private void RemoveToastEntry(InternalToastEntry toastEntry)
+        {
+            if (toastEntry == null || toastEntry.IsRemoved)
+            {
+                return;
+            }
+
+            toastEntry.IsRemoved = true;
+            toastEntry.IconLifetimeToken++;
+            toastEntry.ExpandedLifetimeToken++;
+
+            if (toastEntry.Card?.Parent is Panel cardParent)
+            {
+                cardParent.Children.Remove(toastEntry.Card);
+            }
+
+            if (toastEntry.IconButton?.Parent is Panel iconParent)
+            {
+                iconParent.Children.Remove(toastEntry.IconButton);
+            }
+
+            _internalToasts.Remove(toastEntry);
+            RelayoutMinimizedIcons();
         }
 
         private readonly Dictionary<string, SuperIslandViewModel> _superIslandMap = new Dictionary<string, SuperIslandViewModel>();
@@ -654,6 +976,11 @@ namespace NotifyRelayGamebar
             await CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 Notifications.Clear();
+
+                foreach (var toastEntry in _internalToasts.ToList())
+                {
+                    RemoveToastEntry(toastEntry);
+                }
             });
         }
 
