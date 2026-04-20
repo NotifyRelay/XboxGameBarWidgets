@@ -113,7 +113,13 @@
                                             </Grid.RowDefinitions>
                                             
                                             <!-- 收起状态 - WinIsland 风格 -->
-                                            <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Grid Grid.Row="0" VerticalAlignment="Center">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
                                                 <!-- 专辑封面 -->
                                                 <Border 
                                                     x:Name="CoverBorder"
@@ -128,40 +134,44 @@
                                                         d:Source="/Assets/StoreLogo.png"
                                                         Source="{x:Bind ThumbnailImageSource, Mode=OneWay}"
                                                         Stretch="Uniform" />
-                                                    </Border>
-                                                    
-                                                    <!-- 歌曲信息 - 单行滚动显示 -->
-                                                    <Grid
-                                                        x:Name="TitleMarqueeHost"
-                                                        Margin="8,0,8,0"
-                                                        VerticalAlignment="Center"
-                                                        Loaded="TitleMarqueeHost_Loaded"
-                                                        Unloaded="TitleMarqueeHost_Unloaded"
-                                                        SizeChanged="TitleMarqueeHost_SizeChanged"
-                                                        DataContextChanged="TitleMarqueeHost_DataContextChanged">
-                                                        <TextBlock 
-                                                            x:Name="TitleText"
-                                                            Text="{x:Bind Title, Mode=OneWay}" 
-                                                            FontSize="12"
-                                                            FontWeight="Normal"
-                                                            Foreground="White"
-                                                            TextWrapping="NoWrap"
-                                                            TextTrimming="None">
-                                                            <TextBlock.RenderTransform>
-                                                                <TranslateTransform />
-                                                            </TextBlock.RenderTransform>
-                                                        </TextBlock>
-                                                    </Grid>
-                                                    
-                                                    <!-- 播放状态指示器 -->
-                                                    <Grid 
-                                                        x:Name="PlayIndicator"
-                                                        Width="20" 
-                                                        Height="18" 
-                                                        VerticalAlignment="Center"
-                                                        DataContextChanged="PlayIndicator_DataContextChanged"
-                                                        Loaded="PlayIndicator_Loaded"
-                                                        Unloaded="PlayIndicator_Unloaded">
+                                                </Border>
+
+                                                <!-- 歌曲信息 - 单行滚动显示 -->
+                                                <Grid
+                                                    x:Name="TitleMarqueeHost"
+                                                    Grid.Column="1"
+                                                    Margin="8,0,8,0"
+                                                    MinWidth="0"
+                                                    VerticalAlignment="Center"
+                                                    HorizontalAlignment="Stretch"
+                                                    Loaded="TitleMarqueeHost_Loaded"
+                                                    Unloaded="TitleMarqueeHost_Unloaded"
+                                                    SizeChanged="TitleMarqueeHost_SizeChanged"
+                                                    DataContextChanged="TitleMarqueeHost_DataContextChanged">
+                                                    <TextBlock 
+                                                        x:Name="TitleText"
+                                                        Text="{x:Bind Title, Mode=OneWay}" 
+                                                        FontSize="12"
+                                                        FontWeight="Normal"
+                                                        Foreground="White"
+                                                        TextWrapping="NoWrap"
+                                                        TextTrimming="None">
+                                                        <TextBlock.RenderTransform>
+                                                            <TranslateTransform />
+                                                        </TextBlock.RenderTransform>
+                                                    </TextBlock>
+                                                </Grid>
+
+                                                <!-- 播放状态指示器 -->
+                                                <Grid 
+                                                    x:Name="PlayIndicator"
+                                                    Grid.Column="2"
+                                                    Width="20" 
+                                                    Height="18" 
+                                                    VerticalAlignment="Center"
+                                                    DataContextChanged="PlayIndicator_DataContextChanged"
+                                                    Loaded="PlayIndicator_Loaded"
+                                                    Unloaded="PlayIndicator_Unloaded">
                                                         <Grid.Resources>
                                                             <Storyboard x:Name="SpectrumStoryboard" RepeatBehavior="Forever">
                                                                 <DoubleAnimation Storyboard.TargetName="Bar1Scale" Storyboard.TargetProperty="ScaleY" From="0.20" To="0.55" Duration="0:0:0.75" BeginTime="0:0:0.00" />
@@ -208,7 +218,7 @@
                                                             </Rectangle>
                                                         </StackPanel>
                                                     </Grid>
-                                                </StackPanel>
+                                            </Grid>
                                             
                                             <!-- 展开状态 -->
                                             <Grid 
