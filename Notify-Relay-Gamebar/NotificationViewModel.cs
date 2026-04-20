@@ -8,12 +8,14 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
 using TimberLog;
+using Windows.Foundation;
 using Windows.ApplicationModel.Core;
 using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Media.Animation;
 using Windows.UI.Xaml.Media.Imaging;
 
 namespace NotifyRelayGamebar
@@ -342,8 +344,67 @@ namespace NotifyRelayGamebar
                         innerBorder.Child = vertical;
                         container.Child = innerBorder;
 
+                        // 准备“气泡弹出”入场动画：先小后大并轻微上浮，同时淡入
+                        var entranceTransform = new CompositeTransform
+                        {
+                            ScaleX = 0.78,
+                            ScaleY = 0.78,
+                            TranslateY = 12
+                        };
+                        shadowGrid.RenderTransform = entranceTransform;
+                        shadowGrid.RenderTransformOrigin = new Point(0.5, 0.5);
+                        shadowGrid.Opacity = 0;
+
                         // append to ToastStack (later notifications appear below)
                         _toastStack.Children.Add(shadowGrid);
+
+                        var popupStoryboard = new Storyboard();
+
+                        var fadeInAnimation = new DoubleAnimation
+                        {
+                            From = 0,
+                            To = 1,
+                            Duration = TimeSpan.FromMilliseconds(210),
+                            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                        };
+                        Storyboard.SetTarget(fadeInAnimation, shadowGrid);
+                        Storyboard.SetTargetProperty(fadeInAnimation, "Opacity");
+
+                        var scaleXAnimation = new DoubleAnimation
+                        {
+                            From = 0.78,
+                            To = 1,
+                            Duration = TimeSpan.FromMilliseconds(260),
+                            EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut }
+                        };
+                        Storyboard.SetTarget(scaleXAnimation, shadowGrid);
+                        Storyboard.SetTargetProperty(scaleXAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleX)");
+
+                        var scaleYAnimation = new DoubleAnimation
+                        {
+                            From = 0.78,
+                            To = 1,
+                            Duration = TimeSpan.FromMilliseconds(260),
+                            EasingFunction = new BackEase { Amplitude = 0.5, EasingMode = EasingMode.EaseOut }
+                        };
+                        Storyboard.SetTarget(scaleYAnimation, shadowGrid);
+                        Storyboard.SetTargetProperty(scaleYAnimation, "(UIElement.RenderTransform).(CompositeTransform.ScaleY)");
+
+                        var translateYAnimation = new DoubleAnimation
+                        {
+                            From = 12,
+                            To = 0,
+                            Duration = TimeSpan.FromMilliseconds(260),
+                            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                        };
+                        Storyboard.SetTarget(translateYAnimation, shadowGrid);
+                        Storyboard.SetTargetProperty(translateYAnimation, "(UIElement.RenderTransform).(CompositeTransform.TranslateY)");
+
+                        popupStoryboard.Children.Add(fadeInAnimation);
+                        popupStoryboard.Children.Add(scaleXAnimation);
+                        popupStoryboard.Children.Add(scaleYAnimation);
+                        popupStoryboard.Children.Add(translateYAnimation);
+                        popupStoryboard.Begin();
 
                         // 在UI线程上触发图标加载（LoadIconImageAsync 内部会再次使用 _uiDispatcher）
                         if (!string.IsNullOrEmpty(notification.IconUrl))
