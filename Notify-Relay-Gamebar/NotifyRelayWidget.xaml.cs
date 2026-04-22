@@ -34,14 +34,16 @@ namespace NotifyRelayGamebar
         private sealed class MarqueeBindingToken
         {
             public Models.MediaSessionViewModel ViewModel { get; }
-            public long Token { get; }
+            public long TitleToken { get; }
+            public long PlayingToken { get; }
             public Storyboard Storyboard { get; set; }
             public TextBlock TextBlock { get; }
 
-            public MarqueeBindingToken(Models.MediaSessionViewModel viewModel, long token, TextBlock textBlock)
+            public MarqueeBindingToken(Models.MediaSessionViewModel viewModel, long titleToken, long playingToken, TextBlock textBlock)
             {
                 ViewModel = viewModel;
-                Token = token;
+                TitleToken = titleToken;
+                PlayingToken = playingToken;
                 TextBlock = textBlock;
             }
         }
@@ -58,6 +60,7 @@ namespace NotifyRelayGamebar
 
         private const double MarqueeSpeed = 30.0;
         private const double MarqueeStartDelaySeconds = 0.8;
+        private const double MarqueeEndPadding = 12.0;
         
         // 记录展开状态的字典
         private Dictionary<string, bool> _expandedStates = new Dictionary<string, bool>();
@@ -187,7 +190,7 @@ namespace NotifyRelayGamebar
 
             if (host?.DataContext is Models.MediaSessionViewModel viewModel)
             {
-                var token = viewModel.RegisterPropertyChangedCallback(
+                var titleToken = viewModel.RegisterPropertyChangedCallback(
                     Models.MediaSessionViewModel.TitleProperty,
                     (d, p) =>
                     {
@@ -197,7 +200,17 @@ namespace NotifyRelayGamebar
                         });
                     });
 
-                host.Tag = new MarqueeBindingToken(viewModel, token, textBlock);
+                var playingToken = viewModel.RegisterPropertyChangedCallback(
+                    Models.MediaSessionViewModel.IsPlayingProperty,
+                    (d, p) =>
+                    {
+                        var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            ResetMarquee(host, textBlock);
+                        });
+                    });
+
+                host.Tag = new MarqueeBindingToken(viewModel, titleToken, playingToken, textBlock);
             }
 
             ResetMarquee(host, textBlock);
@@ -225,8 +238,28 @@ namespace NotifyRelayGamebar
                 return null;
             }
 
-            return host.FindName("TitleText") as TextBlock
-                ?? host.FindName("ExpandedTitle") as TextBlock;
+            return FindDescendant<TextBlock>(host);
+        }
+
+        private static T FindDescendant<T>(DependencyObject root) where T : DependencyObject
+        {
+            var childCount = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+                if (child is T match)
+                {
+                    return match;
+                }
+
+                var descendant = FindDescendant<T>(child);
+                if (descendant != null)
+                {
+                    return descendant;
+                }
+            }
+
+            return null;
         }
 
         private void ResetMarquee(FrameworkElement host, TextBlock textBlock)
@@ -266,12 +299,18 @@ namespace NotifyRelayGamebar
 
             transform.X = 0;
 
+            if (host.DataContext is Models.MediaSessionViewModel viewModel && !viewModel.IsPlaying)
+            {
+                return;
+            }
+
             if (overflow <= 2)
             {
                 return;
             }
 
-            var durationSeconds = Math.Max(overflow / MarqueeSpeed, 1.2);
+            var scrollDistance = overflow + MarqueeEndPadding;
+            var durationSeconds = Math.Max(scrollDistance / MarqueeSpeed, 1.2);
             var storyboard = new Storyboard();
             var keyframes = new DoubleAnimationUsingKeyFrames
             {
@@ -292,7 +331,7 @@ namespace NotifyRelayGamebar
             keyframes.KeyFrames.Add(new LinearDoubleKeyFrame
             {
                 KeyTime = TimeSpan.FromSeconds(MarqueeStartDelaySeconds + durationSeconds),
-                Value = -overflow
+                Value = -scrollDistance
             });
 
             Storyboard.SetTarget(keyframes, transform);
@@ -306,7 +345,7 @@ namespace NotifyRelayGamebar
             }
             else
             {
-                host.Tag = new MarqueeBindingToken(null, 0, textBlock)
+                host.Tag = new MarqueeBindingToken(null, 0, 0, textBlock)
                 {
                     Storyboard = storyboard
                 };
@@ -334,7 +373,10 @@ namespace NotifyRelayGamebar
             {
                 token.ViewModel.UnregisterPropertyChangedCallback(
                     Models.MediaSessionViewModel.TitleProperty,
-                    token.Token);
+                    token.TitleToken);
+                token.ViewModel.UnregisterPropertyChangedCallback(
+                    Models.MediaSessionViewModel.IsPlayingProperty,
+                    token.PlayingToken);
             }
 
             if (host?.Tag is MarqueeBindingToken stopToken)

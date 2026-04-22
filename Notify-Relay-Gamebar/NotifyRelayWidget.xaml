@@ -148,18 +148,21 @@
                                                     Unloaded="TitleMarqueeHost_Unloaded"
                                                     SizeChanged="TitleMarqueeHost_SizeChanged"
                                                     DataContextChanged="TitleMarqueeHost_DataContextChanged">
-                                                    <TextBlock 
-                                                        x:Name="TitleText"
-                                                        Text="{x:Bind Title, Mode=OneWay}" 
-                                                        FontSize="12"
-                                                        FontWeight="Normal"
-                                                        Foreground="White"
-                                                        TextWrapping="NoWrap"
-                                                        TextTrimming="None">
-                                                        <TextBlock.RenderTransform>
-                                                            <TranslateTransform />
-                                                        </TextBlock.RenderTransform>
-                                                    </TextBlock>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock 
+                                                            x:Name="TitleText"
+                                                            Text="{x:Bind Title, Mode=OneWay}" 
+                                                            FontSize="12"
+                                                            FontWeight="Normal"
+                                                            Foreground="White"
+                                                            HorizontalAlignment="Left"
+                                                            TextWrapping="NoWrap"
+                                                            TextTrimming="None">
+                                                            <TextBlock.RenderTransform>
+                                                                <TranslateTransform />
+                                                            </TextBlock.RenderTransform>
+                                                        </TextBlock>
+                                                    </StackPanel>
                                                 </Grid>
 
                                                 <!-- 播放状态指示器 -->
@@ -249,17 +252,20 @@
                                                             Unloaded="TitleMarqueeHost_Unloaded"
                                                             SizeChanged="TitleMarqueeHost_SizeChanged"
                                                             DataContextChanged="TitleMarqueeHost_DataContextChanged">
-                                                            <TextBlock 
-                                                                x:Name="ExpandedTitle"
-                                                                Style="{StaticResource WinIslandTitleTextStyle}"
-                                                                Text="{x:Bind Title, Mode=OneWay}" 
-                                                                TextWrapping="NoWrap"
-                                                                TextTrimming="None"
-                                                                Opacity="0">
-                                                                <TextBlock.RenderTransform>
-                                                                    <TranslateTransform />
-                                                                </TextBlock.RenderTransform>
-                                                            </TextBlock>
+                                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                <TextBlock 
+                                                                    x:Name="ExpandedTitle"
+                                                                    Style="{StaticResource WinIslandTitleTextStyle}"
+                                                                    Text="{x:Bind Title, Mode=OneWay}" 
+                                                                    HorizontalAlignment="Left"
+                                                                    TextWrapping="NoWrap"
+                                                                    TextTrimming="None"
+                                                                    Opacity="0">
+                                                                    <TextBlock.RenderTransform>
+                                                                        <TranslateTransform />
+                                                                    </TextBlock.RenderTransform>
+                                                                </TextBlock>
+                                                            </StackPanel>
                                                         </Grid>
                                                         
                                                         <!-- 艺术家 -->
