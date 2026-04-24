@@ -88,6 +88,12 @@ namespace NotifyRelayGamebar
         private const int MinimizedIconDurationMs = 30000;
         private const double MinimizedIconSlotWidth = 26;
         private const double MinimizedIconSlotHeight = 26;
+        private const int MaxExpandedToasts = 2;
+        private const double BodyScrollSpeedPxPerSec = 15.0;
+        private const int BodyScrollPauseBeforeMs = 1500;
+        private const int BodyScrollReadBufferMs = 1000;
+        private const double BodyLineHeightFactor = 1.33;
+        private readonly Queue<InternalToastEntry> _pendingExpandQueue = new Queue<InternalToastEntry>();
 
         private sealed class InternalToastEntry
         {
@@ -98,6 +104,11 @@ namespace NotifyRelayGamebar
             public bool IsRemoved { get; set; }
             public int ExpandedLifetimeToken { get; set; }
             public int IconLifetimeToken { get; set; }
+            public Border BodyScrollContainer { get; set; }
+            public Grid BodyGrid { get; set; }
+            public Storyboard BodyScrollStoryboard { get; set; }
+            public bool PendingExpand { get; set; }
+            public double ScrollDurationMs { get; set; }
         }
     
         public StackPanel ToastStack
@@ -333,40 +344,52 @@ namespace NotifyRelayGamebar
                         // 使用Grid和两个重叠的TextBlock实现描边效果
                         Grid bodyGrid = new Grid();
                         bodyGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
-                        
+
                         // 底层描边文本
                         TextBlock bodyStroke = new TextBlock();
                         bodyStroke.Text = notification.Body;
+                        bodyStroke.FontSize = 14;
                         bodyStroke.TextWrapping = TextWrapping.Wrap;
                         bodyStroke.HorizontalAlignment = HorizontalAlignment.Stretch;
                         bodyStroke.Margin = new Thickness(1, 1, 0, 0);
-                        bodyStroke.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ? 
-                            new SolidColorBrush(Windows.UI.Colors.Black) : 
+                        bodyStroke.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ?
+                            new SolidColorBrush(Windows.UI.Colors.Black) :
                             new SolidColorBrush(Windows.UI.Colors.White);
-                        
+
                         // 上层主文本
                         TextBlock bodyBlock = new TextBlock();
                         bodyBlock.Text = notification.Body;
+                        bodyBlock.FontSize = 14;
                         bodyBlock.TextWrapping = TextWrapping.Wrap;
                         bodyBlock.HorizontalAlignment = HorizontalAlignment.Stretch;
-                        bodyBlock.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ? 
-                            new SolidColorBrush(Windows.UI.Colors.White) : 
+                        bodyBlock.Foreground = Application.Current.RequestedTheme == ApplicationTheme.Dark ?
+                            new SolidColorBrush(Windows.UI.Colors.White) :
                             new SolidColorBrush(Windows.UI.Colors.Black);
-                        
+
                         bodyGrid.Children.Add(bodyStroke);
                         bodyGrid.Children.Add(bodyBlock);
+
+                        var threeLineHeight = 14 * BodyLineHeightFactor * 3;
+                        Border bodyScrollContainer = new Border
+                        {
+                            HorizontalAlignment = HorizontalAlignment.Stretch,
+                            Height = threeLineHeight,
+                            Clip = new RectangleGeometry { Rect = new Rect(0, 0, 2000, threeLineHeight) }
+                        };
+                        bodyGrid.RenderTransform = new TranslateTransform { Y = 0 };
+                        bodyScrollContainer.Child = bodyGrid;
 
                         Grid.SetRow(img, 0);
                         Grid.SetColumn(img, 0);
                         Grid.SetRowSpan(img, 2);
                         Grid.SetRow(titleGrid, 0);
                         Grid.SetColumn(titleGrid, 1);
-                        Grid.SetRow(bodyGrid, 1);
-                        Grid.SetColumn(bodyGrid, 1);
+                        Grid.SetRow(bodyScrollContainer, 1);
+                        Grid.SetColumn(bodyScrollContainer, 1);
 
                         grid.Children.Add(img);
                         grid.Children.Add(titleGrid);
-                        grid.Children.Add(bodyGrid);
+                        grid.Children.Add(bodyScrollContainer);
 
                         vertical.Children.Add(sourceLine);
                         vertical.Children.Add(grid);
@@ -381,7 +404,24 @@ namespace NotifyRelayGamebar
                             Card = shadowGrid,
                             IconButton = iconButton,
                             IconImage = iconImage,
-                            IsExpanded = true
+                            IsExpanded = true,
+                            BodyScrollContainer = bodyScrollContainer,
+                            BodyGrid = bodyGrid
+                        };
+
+                        bodyScrollContainer.SizeChanged += (sender, args) =>
+                        {
+                            if (toastEntry.IsRemoved) return;
+                            var containerHeight = bodyScrollContainer.ActualHeight;
+                            var contentHeight = bodyGrid.ActualHeight;
+                            if (contentHeight > containerHeight + 2)
+                            {
+                                var overflow = contentHeight - containerHeight;
+                                toastEntry.ScrollDurationMs = overflow / BodyScrollSpeedPxPerSec * 1000.0;
+                                if (toastEntry.ScrollDurationMs < 500) toastEntry.ScrollDurationMs = 500;
+                                bodyScrollContainer.Clip = new RectangleGeometry { Rect = new Rect(0, 0, bodyScrollContainer.ActualWidth, containerHeight) };
+                                StartBodyScrollAnimation(toastEntry);
+                            }
                         };
 
                         shadowGrid.Tapped += (sender, args) =>
@@ -395,10 +435,6 @@ namespace NotifyRelayGamebar
                         };
 
                         _internalToasts.Add(toastEntry);
-                        _expandedToastContainer.Children.Insert(0, shadowGrid);
-
-                        // 准备“气泡弹出”入场动画：先小后大并轻微上浮，同时淡入
-                        StartBubblePopAnimation(shadowGrid);
 
                         // 在UI线程上触发图标加载（LoadIconImageAsync 内部会再次使用 _uiDispatcher）
                         if (!string.IsNullOrEmpty(notification.IconUrl))
@@ -416,6 +452,21 @@ namespace NotifyRelayGamebar
                         {
                             Timber.Log(LoggerLevel.Error, ex, "Failed to play notification sound");
                         }
+
+                        var expandedCount = _internalToasts.Count(e => e.IsExpanded && !e.IsRemoved);
+                        if (expandedCount > MaxExpandedToasts)
+                        {
+                            toastEntry.IsExpanded = false;
+                            toastEntry.PendingExpand = true;
+                            _pendingExpandQueue.Enqueue(toastEntry);
+                            RelayoutMinimizedIcons();
+                            return;
+                        }
+
+                        _expandedToastContainer.Children.Insert(0, shadowGrid);
+
+                        // 准备"气泡弹出"入场动画：先小后大并轻微上浮，同时淡入
+                        StartBubblePopAnimation(shadowGrid);
 
                         ScheduleAutoCollapse(toastEntry);
                     }
@@ -555,6 +606,57 @@ namespace NotifyRelayGamebar
             popupStoryboard.Begin();
         }
 
+        private void StartBodyScrollAnimation(InternalToastEntry toastEntry)
+        {
+            if (toastEntry == null || toastEntry.IsRemoved || toastEntry.BodyGrid == null)
+            {
+                return;
+            }
+
+            StopBodyScrollAnimation(toastEntry);
+
+            var bodyGrid = toastEntry.BodyGrid;
+            var scrollDurationMs = toastEntry.ScrollDurationMs;
+            if (scrollDurationMs <= 0) return;
+
+            var containerHeight = toastEntry.BodyScrollContainer?.Height ?? 0;
+
+            var scrollStoryboard = new Storyboard();
+
+            var scrollAnimation = new DoubleAnimation
+            {
+                From = 0,
+                To = -(toastEntry.ScrollDurationMs / 1000.0 * BodyScrollSpeedPxPerSec),
+                Duration = TimeSpan.FromMilliseconds(scrollDurationMs),
+                BeginTime = TimeSpan.FromMilliseconds(BodyScrollPauseBeforeMs)
+            };
+            Storyboard.SetTarget(scrollAnimation, bodyGrid);
+            Storyboard.SetTargetProperty(scrollAnimation, "(UIElement.RenderTransform).(TranslateTransform.Y)");
+
+            scrollStoryboard.Children.Add(scrollAnimation);
+            toastEntry.BodyScrollStoryboard = scrollStoryboard;
+            scrollStoryboard.Begin();
+        }
+
+        private void StopBodyScrollAnimation(InternalToastEntry toastEntry)
+        {
+            if (toastEntry?.BodyScrollStoryboard != null)
+            {
+                toastEntry.BodyScrollStoryboard.Stop();
+                toastEntry.BodyScrollStoryboard = null;
+            }
+        }
+
+        private int GetAutoCollapseDelayMs(InternalToastEntry toastEntry)
+        {
+            if (toastEntry == null) return ExpandedToastDurationMs;
+            if (toastEntry.ScrollDurationMs > 0)
+            {
+                return BodyScrollPauseBeforeMs + (int)toastEntry.ScrollDurationMs + BodyScrollReadBufferMs;
+            }
+            return ExpandedToastDurationMs;
+        }
+
         private void CollapseToastToIcon(InternalToastEntry toastEntry)
         {
             if (toastEntry == null || toastEntry.IsRemoved || !toastEntry.IsExpanded)
@@ -564,6 +666,7 @@ namespace NotifyRelayGamebar
 
             toastEntry.IsExpanded = false;
             toastEntry.ExpandedLifetimeToken++;
+            StopBodyScrollAnimation(toastEntry);
 
             toastEntry.Card.IsHitTestVisible = false;
             var shrinkStoryboard = new Storyboard();
@@ -626,6 +729,15 @@ namespace NotifyRelayGamebar
 
                 RelayoutMinimizedIcons();
                 ScheduleMinimizedIconRemoval(toastEntry);
+
+                while (_pendingExpandQueue.Count > 0)
+                {
+                    var nextEntry = _pendingExpandQueue.Dequeue();
+                    if (nextEntry.IsRemoved) continue;
+                    nextEntry.PendingExpand = false;
+                    ExpandToastFromIcon(nextEntry);
+                    break;
+                }
             };
 
             shrinkStoryboard.Begin();
@@ -638,6 +750,19 @@ namespace NotifyRelayGamebar
                 return;
             }
 
+            if (toastEntry.PendingExpand)
+            {
+                RemoveFromPendingQueue(toastEntry);
+            }
+
+            var expandedCount = _internalToasts.Count(e => e.IsExpanded && !e.IsRemoved);
+            if (expandedCount >= MaxExpandedToasts)
+            {
+                toastEntry.PendingExpand = true;
+                _pendingExpandQueue.Enqueue(toastEntry);
+                return;
+            }
+
             toastEntry.IsExpanded = true;
             toastEntry.IconLifetimeToken++;
 
@@ -645,6 +770,22 @@ namespace NotifyRelayGamebar
             StartBubblePopAnimation(toastEntry.Card);
             RelayoutMinimizedIcons();
             ScheduleAutoCollapse(toastEntry);
+        }
+
+        private void RemoveFromPendingQueue(InternalToastEntry entry)
+        {
+            if (entry == null || !entry.PendingExpand) return;
+            var remaining = new Queue<InternalToastEntry>();
+            while (_pendingExpandQueue.Count > 0)
+            {
+                var item = _pendingExpandQueue.Dequeue();
+                if (item != entry) remaining.Enqueue(item);
+            }
+            while (remaining.Count > 0)
+            {
+                _pendingExpandQueue.Enqueue(remaining.Dequeue());
+            }
+            entry.PendingExpand = false;
         }
 
         private void RelayoutMinimizedIcons()
@@ -713,10 +854,11 @@ namespace NotifyRelayGamebar
                 return;
             }
 
+            var delayMs = GetAutoCollapseDelayMs(toastEntry);
             var token = ++toastEntry.ExpandedLifetimeToken;
             Task.Run(async () =>
             {
-                await Task.Delay(ExpandedToastDurationMs);
+                await Task.Delay(delayMs);
                 await _uiDispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     if (toastEntry.IsRemoved || !toastEntry.IsExpanded || toastEntry.ExpandedLifetimeToken != token)
@@ -762,6 +904,12 @@ namespace NotifyRelayGamebar
             toastEntry.IsRemoved = true;
             toastEntry.IconLifetimeToken++;
             toastEntry.ExpandedLifetimeToken++;
+            StopBodyScrollAnimation(toastEntry);
+
+            if (toastEntry.PendingExpand)
+            {
+                RemoveFromPendingQueue(toastEntry);
+            }
 
             if (toastEntry.Card?.Parent is Panel cardParent)
             {
@@ -775,6 +923,15 @@ namespace NotifyRelayGamebar
 
             _internalToasts.Remove(toastEntry);
             RelayoutMinimizedIcons();
+
+            while (_pendingExpandQueue.Count > 0)
+            {
+                var nextEntry = _pendingExpandQueue.Dequeue();
+                if (nextEntry.IsRemoved) continue;
+                nextEntry.PendingExpand = false;
+                ExpandToastFromIcon(nextEntry);
+                break;
+            }
         }
 
         private readonly Dictionary<string, SuperIslandViewModel> _superIslandMap = new Dictionary<string, SuperIslandViewModel>();
@@ -981,6 +1138,8 @@ namespace NotifyRelayGamebar
                 {
                     RemoveToastEntry(toastEntry);
                 }
+
+                _pendingExpandQueue.Clear();
             });
         }
 
