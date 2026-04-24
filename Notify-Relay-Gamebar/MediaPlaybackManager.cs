@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TimberLog;
+using Windows.Media;
+using Windows.Media.Control;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -301,7 +303,18 @@ namespace NotifyRelayGamebar
                                     existingSession.Title = title;
                                 }
 
-                                EnsureLyricsForSessionAsync(existingSession, title, artist, durationSeconds);
+                                if (IsMusicSession(localSession))
+                                {
+                                    EnsureLyricsForSessionAsync(existingSession, title, artist, durationSeconds);
+                                }
+                                else
+                                {
+                                    existingSession.LyricLines = null;
+                                    existingSession.CurrentLyricLine = string.Empty;
+                                    existingSession.LyricsKey = string.Empty;
+                                    existingSession.LyricsRequestId = 0;
+                                    existingSession.Title = existingSession.OriginalTitle;
+                                }
 
                                 if (hasTimeline)
                                 {
@@ -342,7 +355,10 @@ namespace NotifyRelayGamebar
                                 DurationSeconds = durationSeconds
                             };
 
-                            EnsureLyricsForSessionAsync(sessionViewModel, title, artist, durationSeconds);
+                            if (IsMusicSession(localSession))
+                            {
+                                EnsureLyricsForSessionAsync(sessionViewModel, title, artist, durationSeconds);
+                            }
 
                             if (hasTimeline)
                             {
@@ -849,7 +865,18 @@ namespace NotifyRelayGamebar
                             existingVm.Artist = artist;
                             existingVm.Album = mediaInfo.AlbumTitle ?? "";
 
-                            EnsureLyricsForSessionAsync(existingVm, title, artist, existingVm.DurationSeconds);
+                            if (IsMusicSession(localSession))
+                            {
+                                EnsureLyricsForSessionAsync(existingVm, title, artist, existingVm.DurationSeconds);
+                            }
+                            else
+                            {
+                                existingVm.LyricLines = null;
+                                existingVm.CurrentLyricLine = string.Empty;
+                                existingVm.LyricsKey = string.Empty;
+                                existingVm.LyricsRequestId = 0;
+                                existingVm.Title = existingVm.OriginalTitle;
+                            }
 
                             var thumbnailStream = freshSource.GetThumbnailStream();
                             if (thumbnailStream != null)
@@ -892,9 +919,22 @@ namespace NotifyRelayGamebar
 
             await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
+                var localSessions = _npsManager?.GetSessions() ?? new NowPlayingSession[0];
+
                 foreach (var session in _playerViewModel.MediaSessions.Where(s => !s.IsRemoteSession))
                 {
                     if (!LyricsSettings.OnlineLyricsEnabled)
+                    {
+                        session.LyricLines = null;
+                        session.CurrentLyricLine = string.Empty;
+                        session.Title = session.OriginalTitle;
+                        session.LyricsKey = string.Empty;
+                        session.LyricsRequestId = 0;
+                        continue;
+                    }
+
+                    var matchingLocalSession = localSessions.FirstOrDefault(s => s.SourceAppId == session.SessionId);
+                    if (matchingLocalSession != null && !IsMusicSession(matchingLocalSession))
                     {
                         session.LyricLines = null;
                         session.CurrentLyricLine = string.Empty;
@@ -1127,6 +1167,38 @@ namespace NotifyRelayGamebar
             }
 
             return TimeSpan.FromMilliseconds(value);
+        }
+
+        private static bool IsMusicSession(NowPlayingSession session)
+        {
+            try
+            {
+                var mgrOp = GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+                var mgr = mgrOp.GetAwaiter().GetResult();
+                var sessions = mgr.GetSessions();
+                for (uint i = 0; i < sessions.Count; i++)
+                {
+                    var s = sessions[(int)i];
+                    var appId = s.SourceAppUserModelId?.ToString();
+                    if (string.Equals(appId, session.SourceAppId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var pbInfo = s.GetPlaybackInfo();
+                        var pbType = pbInfo.PlaybackType;
+                        if (pbType != null)
+                        {
+                            if (pbType == MediaPlaybackType.Video)
+                            {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            return true;
         }
 
         // 媒体控制按钮事件处理
