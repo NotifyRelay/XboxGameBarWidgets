@@ -104,7 +104,7 @@ namespace NotifyRelayGamebar
             public bool IsRemoved { get; set; }
             public int ExpandedLifetimeToken { get; set; }
             public int IconLifetimeToken { get; set; }
-            public Border BodyScrollContainer { get; set; }
+            public FrameworkElement BodyScrollContainer { get; set; }
             public Grid BodyGrid { get; set; }
             public Storyboard BodyScrollStoryboard { get; set; }
             public bool PendingExpand { get; set; }
@@ -341,7 +341,6 @@ namespace NotifyRelayGamebar
                         titleGrid.Children.Add(titleStroke);
                         titleGrid.Children.Add(titleBlock);
 
-                        // 使用Grid和两个重叠的TextBlock实现描边效果
                         Grid bodyGrid = new Grid();
                         bodyGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
 
@@ -370,14 +369,26 @@ namespace NotifyRelayGamebar
                         bodyGrid.Children.Add(bodyBlock);
 
                         var threeLineHeight = 14 * BodyLineHeightFactor * 3;
-                        Border bodyScrollContainer = new Border
+
+                        // bodyScrollContainer: Canvas 不约束子元素布局，
+                        // bodyGrid 在里面可以自由撑开到文本实际高度，
+                        // 而 Canvas 的固定 Height 使卡片本身不撑大
+                        Canvas bodyScrollContainer = new Canvas
                         {
-                            HorizontalAlignment = HorizontalAlignment.Stretch,
                             Height = threeLineHeight,
+                            HorizontalAlignment = HorizontalAlignment.Stretch,
                             Clip = new RectangleGeometry { Rect = new Rect(0, 0, 2000, threeLineHeight) }
                         };
                         bodyGrid.RenderTransform = new TranslateTransform { Y = 0 };
-                        bodyScrollContainer.Child = bodyGrid;
+                        Canvas.SetLeft(bodyGrid, 0);
+                        Canvas.SetTop(bodyGrid, 0);
+                        bodyScrollContainer.Children.Add(bodyGrid);
+                        // 设置 bodyGrid 宽度与父级一致，使 TextBlock 能正确换行
+                        bodyScrollContainer.SizeChanged += (sender, args) =>
+                        {
+                            var w = bodyScrollContainer.ActualWidth;
+                            if (w > 0) bodyGrid.Width = w;
+                        };
 
                         Grid.SetRow(img, 0);
                         Grid.SetColumn(img, 0);
@@ -412,16 +423,23 @@ namespace NotifyRelayGamebar
                         bodyScrollContainer.SizeChanged += (sender, args) =>
                         {
                             if (toastEntry.IsRemoved) return;
-                            var containerHeight = bodyScrollContainer.ActualHeight;
-                            var contentHeight = bodyGrid.ActualHeight;
-                            if (contentHeight > containerHeight + 2)
+                            var availableWidth = bodyScrollContainer.ActualWidth;
+                            if (availableWidth <= 0) return;
+
+                            // bodyGrid 在 Canvas 内不受高度约束，Measure TextBlock 获得实际文本高度
+                            bodyBlock.Measure(new Windows.Foundation.Size(availableWidth, double.PositiveInfinity));
+                            var contentHeight = bodyBlock.DesiredSize.Height;
+
+                            if (contentHeight > threeLineHeight + 2)
                             {
-                                var overflow = contentHeight - containerHeight;
+                                var overflow = contentHeight - threeLineHeight;
                                 toastEntry.ScrollDurationMs = overflow / BodyScrollSpeedPxPerSec * 1000.0;
                                 if (toastEntry.ScrollDurationMs < 500) toastEntry.ScrollDurationMs = 500;
-                                bodyScrollContainer.Clip = new RectangleGeometry { Rect = new Rect(0, 0, bodyScrollContainer.ActualWidth, containerHeight) };
+                                bodyScrollContainer.Clip = new RectangleGeometry { Rect = new Rect(0, 0, availableWidth, threeLineHeight) };
                                 StartBodyScrollAnimation(toastEntry);
                             }
+
+                            ScheduleAutoCollapse(toastEntry);
                         };
 
                         shadowGrid.Tapped += (sender, args) =>
@@ -468,7 +486,9 @@ namespace NotifyRelayGamebar
                         // 准备"气泡弹出"入场动画：先小后大并轻微上浮，同时淡入
                         StartBubblePopAnimation(shadowGrid);
 
-                        ScheduleAutoCollapse(toastEntry);
+                        // 不在这里立即调用 ScheduleAutoCollapse，
+                        // 而是等待 SizeChanged 事件触发后，在那里面设置 ScrollDurationMs 并启动滚动动画和计时器
+                        // 这样可以确保 auto-collapse 的延迟时间正确计算
                     }
                     catch (Exception ex)
                     {
