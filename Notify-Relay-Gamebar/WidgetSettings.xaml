@@ -8,13 +8,16 @@
     mc:Ignorable="d"
     Background="{x:Null}">
 
-    <Grid Background="{x:Null}">
-        <StackPanel Margin="16" Width="280">
+    <Grid Background="{x:Null}" Margin="0,10,0,-142">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="355*"/>
+            <ColumnDefinition Width="77*"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Margin="76,16,76,198" Width="280" Grid.ColumnSpan="2">
             <TextBlock Text="设置" FontSize="18" FontWeight="Bold" Margin="0,0,0,12" />
-
             <ToggleSwitch
                 Header="在线歌词"
-                IsOn="{x:Bind LyricsSettingsViewModel.IsOnlineLyricsEnabled, Mode=TwoWay}" />
+                IsOn="{x:Bind Mode=TwoWay, Path=LyricsSettingsViewModel.IsOnlineLyricsEnabled}" />
 
             <TextBlock Text="歌词时间偏移 (ms)" Foreground="#666666" Margin="0,12,0,4" />
             <Slider
@@ -23,23 +26,21 @@
                 StepFrequency="100"
                 SmallChange="100"
                 LargeChange="500"
-                Value="{x:Bind LyricsSettingsViewModel.LyricsDelayMs, Mode=TwoWay}"
-                IsEnabled="{x:Bind LyricsSettingsViewModel.IsOnlineLyricsEnabled, Mode=OneWay}" />
-            <StackPanel Orientation="Horizontal" Margin="0,2,0,8">
-                <TextBlock Text="{x:Bind LyricsSettingsViewModel.LyricsDelayMs, Mode=OneWay}" Foreground="#888888" />
+                Value="{x:Bind Mode=TwoWay, Path=LyricsSettingsViewModel.LyricsDelayMs}"
+                IsEnabled="{x:Bind Mode=OneWay, Path=LyricsSettingsViewModel.IsOnlineLyricsEnabled}" RenderTransformOrigin="0.254,0.363" />
+            <StackPanel Orientation="Horizontal" Width="54">
+                <TextBlock Text="{x:Bind Mode=OneWay, Path=LyricsSettingsViewModel.LyricsDelayMs}" Foreground="#888888" />
                 <TextBlock Text=" ms" Foreground="#888888" />
             </StackPanel>
-
-            <TextBlock Text="歌词源优先级" Foreground="#666666" Margin="0,8,0,4" />
+            <TextBlock Text="负值表示歌词提前，正值表示歌词延后" Foreground="#888888" FontSize="10" />
+            <TextBlock Text="歌词源优先级" Foreground="#666666" Width="87" HorizontalAlignment="Left" />
             <ComboBox
-                SelectedValue="{x:Bind LyricsSettingsViewModel.LyricsSourcePriority, Mode=TwoWay}"
+                SelectedValue="{x:Bind Mode=TwoWay, Path=LyricsSettingsViewModel.LyricsSourcePriority}"
                 SelectedValuePath="Tag"
-                IsEnabled="{x:Bind LyricsSettingsViewModel.IsOnlineLyricsEnabled, Mode=OneWay}">
+                IsEnabled="{x:Bind Mode=OneWay, Path=LyricsSettingsViewModel.IsOnlineLyricsEnabled}" Width="104">
                 <ComboBoxItem Content="网易 163 优先" Tag="163" />
                 <ComboBoxItem Content="LrcLib 优先" Tag="lrclib" />
             </ComboBox>
-
-            <TextBlock Text="负值表示歌词提前，正值表示歌词延后" Foreground="#888888" Margin="0,8,0,0" FontSize="10" />
         </StackPanel>
     </Grid>
 </Page>
