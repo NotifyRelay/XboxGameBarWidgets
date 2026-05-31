@@ -11,6 +11,8 @@ namespace NotifyRelayGamebar.Models
         public SuperIslandTimerInfo TimerInfo { get; set; }
         public int? ProgressPercent { get; set; }
         public string ProgressTitle { get; set; }
+        public string Business { get; set; }
+        public string PicFunction { get; set; }
     }
 
     public static class SuperIslandParamV2Parser
@@ -28,18 +30,51 @@ namespace NotifyRelayGamebar.Models
             }
 
             var info = new SuperIslandParsedInfo();
-            var highlight = GetObject(root, "highlightInfo");
-            var chat = GetObject(root, "chatInfo");
-            var baseInfo = GetObject(root, "baseInfo");
-            var hintInfo = GetObject(root, "hintInfo");
-            var progressInfo = GetObject(root, "progressInfo");
-            var multiProgressInfo = GetObject(root, "multiProgressInfo");
+            
+            info.Business = GetString(root, "business");
+
+            JsonObject highlight = null;
+            JsonObject chat = null;
+            JsonObject baseInfo = null;
+            JsonObject hintInfo = null;
+            JsonObject progressInfo = null;
+            JsonObject multiProgressInfo = null;
+            JsonObject animTextInfo = null;
+            JsonObject picInfo = null;
+
+            try { highlight = GetObject(root, "highlightInfo"); } catch { }
+            try { chat = GetObject(root, "chatInfo"); } catch { }
+            try { baseInfo = GetObject(root, "baseInfo"); } catch { }
+            try { hintInfo = GetObject(root, "hintInfo"); } catch { }
+            try { progressInfo = GetObject(root, "progressInfo"); } catch { }
+            try { multiProgressInfo = GetObject(root, "multiProgressInfo"); } catch { }
+            try { animTextInfo = GetObject(root, "animTextInfo"); } catch { }
+            try { picInfo = GetObject(root, "picInfo"); } catch { }
+
+            if (highlight == null)
+            {
+                highlight = ParseHighlightFromIconText(root);
+            }
 
             if (highlight != null)
             {
                 info.Title = GetString(highlight, "title");
                 info.SubTitle = GetString(highlight, "content") ?? GetString(highlight, "subContent");
                 info.TimerInfo = ParseTimerInfo(highlight);
+                info.PicFunction = GetString(highlight, "picFunction");
+            }
+
+            if (animTextInfo != null)
+            {
+                info.Title ??= GetString(animTextInfo, "title");
+                info.SubTitle ??= GetString(animTextInfo, "content");
+                info.TimerInfo ??= ParseTimerInfo(animTextInfo);
+            }
+
+            if (picInfo != null)
+            {
+                info.Title ??= GetString(picInfo, "title");
+                info.SubTitle ??= GetString(picInfo, "content") ?? GetString(picInfo, "subContent");
             }
 
             if (chat != null)
@@ -58,6 +93,8 @@ namespace NotifyRelayGamebar.Models
 
             if (hintInfo != null)
             {
+                info.Title ??= GetString(hintInfo, "title") ?? GetString(hintInfo, "subTitle");
+                info.SubTitle ??= GetString(hintInfo, "content") ?? GetString(hintInfo, "subContent");
                 info.TimerInfo ??= ParseTimerInfo(hintInfo);
             }
 
@@ -78,9 +115,71 @@ namespace NotifyRelayGamebar.Models
                 {
                     info.ProgressPercent = progress.Value;
                 }
+
+                if (info.ProgressPercent == null && !string.IsNullOrWhiteSpace(info.ProgressTitle))
+                {
+                    var title = GetString(baseInfo, "title");
+                    if (!string.IsNullOrWhiteSpace(title))
+                    {
+                        info.ProgressTitle = title;
+                    }
+                }
             }
 
             return info;
+        }
+
+        private static JsonObject ParseHighlightFromIconText(JsonObject root)
+        {
+            var iconText = GetObject(root, "iconTextInfo");
+            if (iconText == null)
+            {
+                return null;
+            }
+
+            var title = GetString(iconText, "title");
+            var content = GetString(iconText, "content");
+            string subContent = null;
+            
+            foreach (var key in new[] { "subTitle", "tip", "desc", "description" })
+            {
+                subContent = GetString(iconText, key);
+                if (!string.IsNullOrWhiteSpace(subContent))
+                {
+                    break;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(content) && string.IsNullOrWhiteSpace(subContent))
+            {
+                return null;
+            }
+
+            var highlight = new JsonObject();
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                highlight.Add("title", JsonValue.CreateStringValue(title));
+            }
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                highlight.Add("content", JsonValue.CreateStringValue(content));
+            }
+            if (!string.IsNullOrWhiteSpace(subContent))
+            {
+                highlight.Add("subContent", JsonValue.CreateStringValue(subContent));
+            }
+
+            var animIcon = GetObject(iconText, "animIconInfo");
+            if (animIcon != null)
+            {
+                var iconKey = GetString(animIcon, "src");
+                if (!string.IsNullOrWhiteSpace(iconKey))
+                {
+                    highlight.Add("picFunction", JsonValue.CreateStringValue(iconKey));
+                }
+            }
+
+            return highlight;
         }
 
         private static JsonObject GetObject(JsonObject root, string key)

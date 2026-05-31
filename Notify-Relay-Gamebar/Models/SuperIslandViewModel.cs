@@ -13,6 +13,9 @@ namespace NotifyRelayGamebar.Models
         private SuperIslandTimerInfo _timerInfo;
         private int? _fixedProgress;
         private string _lastImageUrl;
+        private long _lastLocalUpdateTimeMs;
+        private long _sourceTimeBaseMs;
+        private long _lastDisplayMs;
 
         public string SourceId
         {
@@ -150,7 +153,27 @@ namespace NotifyRelayGamebar.Models
             Extra = parsed?.Extra ?? string.Empty;
             HasExtra = !string.IsNullOrWhiteSpace(Extra);
 
-            _timerInfo = parsed?.TimerInfo;
+            var newTimerInfo = parsed?.TimerInfo;
+            if (newTimerInfo != null)
+            {
+                var isRunning = newTimerInfo.TimerType == 1 || newTimerInfo.TimerType == -1;
+                var wasRunning = _timerInfo != null && (_timerInfo.TimerType == 1 || _timerInfo.TimerType == -1);
+
+                if (isRunning)
+                {
+                    if (!wasRunning || _timerInfo.TimerType != newTimerInfo.TimerType)
+                    {
+                        _lastLocalUpdateTimeMs = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                        _sourceTimeBaseMs = Math.Max(0, _lastDisplayMs);
+                    }
+                }
+                else
+                {
+                    _lastLocalUpdateTimeMs = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                }
+            }
+
+            _timerInfo = newTimerInfo;
             _fixedProgress = parsed?.ProgressPercent;
 
             if (_fixedProgress.HasValue)
@@ -180,27 +203,46 @@ namespace NotifyRelayGamebar.Models
             }
 
             var nowMs = now.ToUnixTimeMilliseconds();
-            var paused = _timerInfo.TimerType == -2 || _timerInfo.TimerType == 2;
-            var currentValue = _timerInfo.TimerWhen;
-            if (!paused)
+            var timerType = _timerInfo.TimerType;
+            var timerWhen = _timerInfo.TimerWhen;
+            var timerSystemCurrent = _timerInfo.TimerSystemCurrent;
+
+            long displayMs;
+            switch (timerType)
             {
-                var delta = Math.Max(0, nowMs - _timerInfo.TimerSystemCurrent);
-                currentValue += delta;
+                case -2:
+                    displayMs = Math.Max(timerWhen - timerSystemCurrent, 0);
+                    break;
+                case -1:
+                {
+                    var localDelta = Math.Max(0, nowMs - _lastLocalUpdateTimeMs);
+                    displayMs = Math.Max(0, _sourceTimeBaseMs - localDelta);
+                    break;
+                }
+                case 2:
+                    displayMs = Math.Max(timerSystemCurrent - timerWhen, 0);
+                    break;
+                case 1:
+                {
+                    var localDelta = Math.Max(0, nowMs - _lastLocalUpdateTimeMs);
+                    displayMs = _sourceTimeBaseMs + localDelta;
+                    break;
+                }
+                default:
+                    displayMs = 0;
+                    break;
             }
 
-            var isCountdown = _timerInfo.TimerType < 0;
-            var displayMs = isCountdown
-                ? Math.Max(_timerInfo.TimerTotal - currentValue, 0)
-                : Math.Max(currentValue, 0);
-
             TimerText = FormatTime(displayMs);
+            _lastDisplayMs = displayMs;
             HasTimer = true;
 
             if (!_fixedProgress.HasValue && _timerInfo.TimerTotal > 0)
             {
+                var isCountdown = timerType < 0;
                 var progress = isCountdown
                     ? (double)displayMs / _timerInfo.TimerTotal
-                    : Math.Min(currentValue, _timerInfo.TimerTotal) / (double)_timerInfo.TimerTotal;
+                    : Math.Min(displayMs, _timerInfo.TimerTotal) / (double)_timerInfo.TimerTotal;
 
                 ProgressPercent = Math.Max(0, Math.Min(100, progress * 100.0));
                 HasProgress = true;
@@ -292,7 +334,7 @@ namespace NotifyRelayGamebar.Models
             var seconds = totalSeconds % 60;
             if (hours > 0)
             {
-                return string.Format("{0}:{1:00}:{2:00}", hours, minutes, seconds);
+                return string.Format("{0:00}:{1:00}:{2:00}", hours, minutes, seconds);
             }
 
             return string.Format("{0:00}:{1:00}", minutes, seconds);
