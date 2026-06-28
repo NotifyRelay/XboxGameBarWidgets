@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -47,6 +48,9 @@ namespace NotifyRelayGamebar.Utils
 
         protected override void Log(TimberLog.LoggerLevel loggerLevel, string message, Exception exception)
         {
+            // 始终输出到 VS 输出窗口，即使文件写入失败也不影响调试
+            Debug.WriteLine($"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.fff}|{loggerLevel}|{message}");
+
             try
             {
 #if WINDOWS_UWP

@@ -498,7 +498,7 @@ namespace NotifyRelayGamebar
             _exampleNotificationManager = new ExampleNotificationManager(
                 widget,
                 ToastStack,
-                () => _mediaPlaybackManager?.GetAllSessions());
+                () => new NowPlayingSession[0]);
             
             // 初始化媒体播放管理器
             _mediaPlaybackManager = new MediaPlaybackManager(
